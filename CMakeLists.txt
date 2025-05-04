@@ -3,4 +3,6 @@ project(splendid_net C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(splendid_net main.c)
+add_executable(splendid_net app.c
+        xnet_tiny.h
+        xnet_tiny.c)
