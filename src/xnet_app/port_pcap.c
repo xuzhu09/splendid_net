@@ -15,10 +15,11 @@ static pcap_t *pcap;
 const char *ip_str = "192.168.254.1";
 
 /**
- * 协议栈 mac 地址
+ * 协议栈虚拟 mac
  *
  */
 const char my_mac_addr[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
+
 /**
  * 初始化网络驱动
  * @return 0成功，其它失败
