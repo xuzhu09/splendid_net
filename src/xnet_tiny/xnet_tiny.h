@@ -8,6 +8,9 @@
 
 #define XNET_CFG_PACKET_MAX_SIZE        1514                // 收发数据包的最大大小
 #define XNET_CFG_NETIF_IP               {192, 168, 254, 2}  // 协议栈的IP地址
+#define XARP_CFG_ENTRY_OK_TMO	        10                   // ARP表项OK超时时间
+#define XARP_CFG_ENTRY_PENDING_TMO	    5                   // ARP表项PENDING超时时间
+#define XARP_CFG_MAX_RETRIES		    3                   // ARP表挂起时重试查询次数
 
 // 以太网包头，使用指针偏移的方式读取，故关闭填充字节
 #pragma pack(1)
@@ -68,6 +71,10 @@ typedef struct _xnet_packet_t {
     uint8_t payload[XNET_CFG_PACKET_MAX_SIZE]; // 载荷字节数组
 } xnet_packet_t;
 
+typedef uint32_t xnet_time_t;           // 时间类型
+const xnet_time_t xsys_get_time(void);
+int xnet_check_tmo(xnet_time_t* time, uint32_t sec);
+
 /**
  * 分配一个发送包
  * @param size
@@ -118,6 +125,9 @@ typedef union _xipaddr_t {
 
 #define XARP_ENTRY_FREE		        0   // 空闲
 #define XARP_ENTRY_OK		        1   // 就绪
+#define XARP_ENTRY_RESOLVING	    2   // ARP表项正在解析
+
+#define XARP_TIMER_PERIOD           1   // ARP扫描周期，1秒
 
 /**
  * ARP表项
@@ -126,8 +136,8 @@ typedef struct _xarp_entry_t {
     xipaddr_t ipaddr; // ip地址
     uint8_t macaddr[XNET_MAC_ADDR_SIZE]; // mac地址
     uint8_t state; // 状态位
-    uint16_t tmo; // 当前超时
-    uint8_t retry_cnt; // 当前重试次数
+    uint16_t ttl; // 剩余时间
+    uint8_t retry_cnt; // 剩余重试次数
 } xarp_entry_t;
 
 /**

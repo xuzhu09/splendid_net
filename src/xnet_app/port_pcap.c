@@ -2,6 +2,7 @@
  * 协议栈 ↔ 网卡 适配层
  */
 #include <string.h>
+#include <time.h>
 #include <stdlib.h>
 #include "pcap_device.h"
 #include "xnet_tiny.h"
@@ -61,4 +62,22 @@ xnet_err_t xnet_driver_read(xnet_packet_t **packet) {
     }
 
     return XNET_ERR_IO;
+}
+
+/**
+ * 获取自程序启动以来，过去了多长时间
+ * @return 程序的系统时间
+ */
+const xnet_time_t xsys_get_time(void) {
+    static uint32_t pre = 0;
+
+    // 以下部分仅供调试时使用
+#if 0
+    uint32_t c = clock() / CLOCKS_PER_SEC;
+    if (c != pre) {
+        printf("sec: %d, 100ms: %d\n", c, (xnet_time_t)(clock()  * 10 / CLOCKS_PER_SEC));
+        pre = c;
+    }
+#endif
+    return (xnet_time_t)(clock() / CLOCKS_PER_SEC);
 }

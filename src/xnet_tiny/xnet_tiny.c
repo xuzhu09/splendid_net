@@ -11,9 +11,28 @@ static const uint8_t ether_broadcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; /
 static uint8_t netif_mac[XNET_MAC_ADDR_SIZE]; // 协议栈mac地址
 static xnet_packet_t tx_packet, rx_packet; // 接收与发送缓冲区
 static xarp_entry_t arp_entry; // ARP表项
+static xnet_time_t arp_last_time; // ARP定时器，记录上一次扫描的时间
 
 #define swap_order16(v)   ((((v) & 0xFF) << 8) | (((v) >> 8) & 0xFF)) // 大小端转换
 #define xipaddr_is_equal_buf(addr, buf)      (memcmp((addr)->array, buf, XNET_IPV4_ADDR_SIZE) == 0)   // 相等比较
+
+/**
+ * 检查是否超时
+ * @param time 前一时间
+ * @param sec 预期超时时间，值为0时，表示获取当前时间
+ * @return 0 - 未超时，1-超时
+ */
+int xnet_check_tmo(xnet_time_t *time, uint32_t sec) {
+    xnet_time_t curr = xsys_get_time();
+    if (sec == 0) {         // sec == 0 ,将 *time 设置成当前时间
+        *time = curr;
+        return 0;
+    } else if (curr - *time >= sec) {   // sec != 0，检查超时
+        *time = curr;
+        return 1;
+    }
+    return 0;
+}
 
 /**
  * 为发包添加一个头部
@@ -138,6 +157,8 @@ static void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr) {
     memcpy(arp_entry.ipaddr.array, src_ip, XNET_IPV4_ADDR_SIZE);
     memcpy(arp_entry.macaddr, mac_addr, XNET_MAC_ADDR_SIZE);
     arp_entry.state = XARP_ENTRY_OK;
+    arp_entry.ttl = XARP_CFG_ENTRY_OK_TMO;
+    arp_entry.retry_cnt = XARP_CFG_MAX_RETRIES;
 }
 
 /**
@@ -175,7 +196,7 @@ static void xarp_in(xnet_packet_t *packet) {
         xarp_packet_t *arp_packet = (xarp_packet_t *) packet->data;
         uint16_t opcode = swap_order16(arp_packet->opcode);
 
-        // 只处理发给自己的请求或响应包
+        // 只处理发给自己的请求或响应包，此处不处理无回报的ARP包
         if (!xipaddr_is_equal_buf(&netif_ipaddr, arp_packet->target_ip)) {
             return;
         }
@@ -242,8 +263,47 @@ static void ethernet_poll(void) {
     }
 }
 
+/**
+ * 查询ARP表项是否超时，超时则重新请求
+ */
+static void xarp_poll(void) {
+    // 每隔 PERIOD 执行一次
+    if (xnet_check_tmo(&arp_last_time, XARP_TIMER_PERIOD)) {
+        switch (arp_entry.state) {
+            // 对方IP没有响应，才会进到这里
+            case XARP_ENTRY_RESOLVING:
+                // 每次进来，都过了PERIOD，所以--
+                if ((arp_entry.ttl-=XARP_TIMER_PERIOD) <= 0) {     // PENDING超时，准备重试
+                    if (arp_entry.retry_cnt-- == 0) { // 重试次数用完，回收
+                        arp_entry.state = XARP_ENTRY_FREE;
+                        arp_entry.ipaddr.addr = 0;
+                    } else {    // 重试次数没有用完，开始重试
+                        xarp_make_request(&arp_entry.ipaddr);
+                        arp_entry.ttl = XARP_CFG_ENTRY_PENDING_TMO;
+                    }
+                }
+                break;
+            case XARP_ENTRY_OK:
+                // 每次进来，都过了PERIOD，所以--
+                if ((arp_entry.ttl-=XARP_TIMER_PERIOD) <= 0) {     // OK超时，重新请求
+                    xarp_make_request(&arp_entry.ipaddr);
+                    arp_entry.state = XARP_ENTRY_RESOLVING;
+                    arp_entry.ttl = XARP_CFG_ENTRY_PENDING_TMO;
+                }
+                break;
+            case XARP_ENTRY_FREE:
+                // 由于目前没有响应无回报的ARP，故默认是FREE状态
+                break;
+
+        }
+    }
+}
+
 static void xarp_init(void) {
     arp_entry.state = XARP_ENTRY_FREE;
+
+    // 设置系统启动时间
+    xnet_check_tmo(&arp_last_time, 0);
 }
 
 /**
@@ -259,4 +319,5 @@ void xnet_init(void) {
  */
 void xnet_poll(void) {
     ethernet_poll();
+    xarp_poll();
 }
