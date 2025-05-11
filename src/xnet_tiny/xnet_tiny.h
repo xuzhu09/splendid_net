@@ -112,14 +112,12 @@ typedef enum _xnet_protocol_t {
  * IP地址，使用共用体，节省空间
  */
 typedef union _xipaddr_t {
-    uint8_t addr_bytes[XNET_IPV4_ADDR_SIZE]; // 以字节形式存储的ip
+    uint8_t array[XNET_IPV4_ADDR_SIZE]; // 以字节形式存储的ip
     uint32_t addr; // 32位的ip地址
 } xipaddr_t;
 
-/**
- * ARP表项空闲
- */
-#define XARP_ENTRY_FREE		        0
+#define XARP_ENTRY_FREE		        0   // 空闲
+#define XARP_ENTRY_OK		        1   // 就绪
 
 /**
  * ARP表项
