@@ -12,6 +12,8 @@
 #define XARP_CFG_ENTRY_PENDING_TMO	    5                   // ARP表项PENDING超时时间
 #define XARP_CFG_MAX_RETRIES		    3                   // ARP表挂起时重试查询次数
 
+#define xipaddr_is_equal_buf(addr, buf)      (memcmp((addr)->array, buf, XNET_IPV4_ADDR_SIZE) == 0)   // 相等比较
+
 // 以太网包头，使用指针偏移的方式读取，故关闭填充字节
 #pragma pack(1)
 
@@ -38,6 +40,8 @@ typedef struct _xether_hdr_t {
 #define XARP_HW_ETHER               0x1         // 以太网
 #define XARP_REQUEST                0x1         // ARP请求包
 #define XARP_REPLY                  0x2         // ARP响应包
+
+#define swap_order16(v)   ((((v) & 0xFF) << 8) | (((v) >> 8) & 0xFF)) // 大小端转换
 
 /**
  * ARP 包
@@ -110,6 +114,12 @@ xnet_err_t xnet_driver_send(xnet_packet_t *packet);
  */
 xnet_err_t xnet_driver_read(xnet_packet_t **packet);
 
+xnet_err_t xarp_make_response(uint8_t *target_ip, uint8_t *target_mac);
+void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr);
+void add_header(xnet_packet_t *packet, uint16_t header_size);
+void remove_header(xnet_packet_t *packet, uint16_t header_size);
+void truncate_packet(xnet_packet_t *packet, uint16_t size);
+
 typedef enum _xnet_protocol_t {
     XNET_PROTOCOL_ARP = 0x0806, // ARP协议
     XNET_PROTOCOL_IP = 0x0800, // IP协议
@@ -122,6 +132,10 @@ typedef union _xipaddr_t {
     uint8_t array[XNET_IPV4_ADDR_SIZE]; // 以字节形式存储的ip
     uint32_t addr; // 32位的ip地址
 } xipaddr_t;
+
+static uint8_t netif_mac[XNET_MAC_ADDR_SIZE]; // 协议栈mac地址
+static const xipaddr_t netif_ipaddr = XNET_CFG_NETIF_IP; // 协议栈的IP地址
+static const uint8_t ether_broadcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // 广播mac地址
 
 #define XARP_ENTRY_FREE		        0   // 空闲
 #define XARP_ENTRY_OK		        1   // 就绪
