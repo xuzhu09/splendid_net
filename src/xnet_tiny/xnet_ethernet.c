@@ -113,7 +113,7 @@ xnet_err_t xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
     memcpy(arp_packet->target_ip, target_ip, XNET_IPV4_ADDR_SIZE);
     memcpy(arp_packet->sender_mac, netif_mac, XNET_MAC_ADDR_SIZE);
     memcpy(arp_packet->sender_ip, netif_ipaddr.bytes, XNET_IPV4_ADDR_SIZE);
-    return ethernet_out_to(XNET_PROTOCOL_ARP, ether_broadcast, packet);
+    return ethernet_out_to(XNET_PROTOCOL_ARP, target_mac, packet);
 }
 
 /**
