@@ -16,7 +16,7 @@
 
 // ARP表项
 typedef struct _xarp_entry_t {
-    xipaddr_t ipaddr; // ip地址
+    xip4_addr_t ipaddr; // ip地址
     uint8_t macaddr[XNET_MAC_ADDR_SIZE]; // mac地址
     uint8_t state; // 状态位
     uint16_t ttl; // 剩余时间
@@ -44,7 +44,7 @@ void xarp_poll(void) {
                 if ((arp_entry.ttl-=XARP_TIMER_PERIOD) <= 0) {     // PENDING超时，准备重试
                     if (arp_entry.retry_cnt-- == 0) { // 重试次数用完，回收
                         arp_entry.state = XARP_ENTRY_FREE;
-                        arp_entry.ipaddr.addr = 0;
+                        arp_entry.ipaddr.value = 0;
                     } else {    // 重试次数没有用完，开始重试
                         xarp_make_request(&arp_entry.ipaddr);
                         arp_entry.ttl = XARP_CFG_ENTRY_PENDING_TMO;
@@ -73,7 +73,7 @@ void xarp_poll(void) {
  * @param mac_addr 对应的mac地址
  */
 void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr) {
-    memcpy(arp_entry.ipaddr.array, src_ip, XNET_IPV4_ADDR_SIZE);
+    memcpy(arp_entry.ipaddr.bytes, src_ip, XNET_IPV4_ADDR_SIZE);
     memcpy(arp_entry.macaddr, mac_addr, XNET_MAC_ADDR_SIZE);
     arp_entry.state = XARP_ENTRY_OK;
     arp_entry.ttl = XARP_CFG_ENTRY_OK_TMO;

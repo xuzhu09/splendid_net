@@ -8,7 +8,7 @@
 
 #define XNET_CFG_PACKET_MAX_SIZE        1514                // 收发数据包的最大大小 1500+6+6+2
 #define XNET_CFG_NETIF_IP               {192, 168, 254, 2}  // 协议栈的IP地址
-#define xipaddr_is_equal_buf(addr, buf)      (memcmp((addr)->array, buf, XNET_IPV4_ADDR_SIZE) == 0)   // 相等比较
+#define xipaddr_is_equal_buf(addr, buf)      (memcmp((addr)->bytes, buf, XNET_IPV4_ADDR_SIZE) == 0)   // 相等比较
 #define XNET_IPV4_ADDR_SIZE             4                   // IP地址长度
 #define XNET_MAC_ADDR_SIZE              6                   // MAC地址长度
 
@@ -48,10 +48,10 @@ void remove_header(xnet_packet_t* packet, uint16_t header_size);
 void truncate_packet(xnet_packet_t* packet, uint16_t size);
 
 // IP地址，使用共用体，节省空间
-typedef union _xipaddr_t {
-    uint8_t array[XNET_IPV4_ADDR_SIZE]; // 以字节形式存储的ip
-    uint32_t addr; // 32位的ip地址
-} xipaddr_t;
+typedef union _xip4_addr_t {
+    uint8_t bytes[XNET_IPV4_ADDR_SIZE]; // 以字节形式存储的ip
+    uint32_t value; // 32位的ip地址
+} xip4_addr_t;
 
 // 协议栈初始化
 void xnet_init(void);
