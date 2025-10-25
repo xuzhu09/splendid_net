@@ -9,7 +9,7 @@
 
 void xarp_init(void);
 void xarp_poll(void);
-void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr);
-int xnet_check_tmo(xnet_time_t* time, uint32_t sec);
+void update_arp_entry(uint8_t* src_ip, uint8_t* mac_addr);
+int xnet_check_tmo(xnet_time_t* last_time, uint32_t gap_time);
 
 #endif //XNET_ARP_H
