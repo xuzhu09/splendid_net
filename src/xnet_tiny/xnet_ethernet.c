@@ -12,7 +12,7 @@
 #define XARP_REQUEST                0x1         // ARP请求包
 #define XARP_REPLY                  0x2         // ARP响应包
 
-static uint8_t netif_mac[XNET_MAC_ADDR_SIZE]; // 协议栈mac地址,由驱动回写
+static uint8_t my_netif_mac[XNET_MAC_ADDR_SIZE]; // 协议栈mac地址,由驱动回写
 static const uint8_t ether_broadcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // arp广播，mac专用地址
 
 // 关闭填充字节
@@ -37,19 +37,18 @@ typedef struct _xarp_packet_t {
 /**
  * 发送一个以太网数据帧
  * @param protocol 上层数据协议，IP或ARP
- * @param mac_addr 目标网卡的mac地址
+ * @param target_mac_addr 目标网卡的mac地址
  * @param packet 待发送的数据包
  * @return 发送结果
  */
-xnet_err_e ethernet_out_to(xnet_protocol_e protocol, const uint8_t* mac_addr, xnet_packet_t* packet) {
-    xether_hdr_t* ether_hdr;
-
-    // 添加以太网头部，指针前移
-    // 传入的ether_hdr并未携带任何数据
+xnet_status_t ethernet_out_to(xnet_protocol_t protocol, const uint8_t* target_mac_addr, xnet_packet_t* packet) {
+    // 添加以太网头部
     add_header(packet, sizeof(xether_hdr_t));
-    ether_hdr = (xether_hdr_t*) packet->data_start;
-    memcpy(ether_hdr->dest, mac_addr, XNET_MAC_ADDR_SIZE);
-    memcpy(ether_hdr->src, netif_mac, XNET_MAC_ADDR_SIZE);
+
+    // 填充头部数据
+    xether_hdr_t* ether_hdr = (xether_hdr_t*) packet->data_start;
+    memcpy(ether_hdr->dest, target_mac_addr, XNET_MAC_ADDR_SIZE);
+    memcpy(ether_hdr->src, my_netif_mac, XNET_MAC_ADDR_SIZE);
     ether_hdr->protocol = swap_order16(protocol);
 
     // 数据发送
@@ -61,7 +60,7 @@ xnet_err_e ethernet_out_to(xnet_protocol_e protocol, const uint8_t* mac_addr, xn
  * @param target_ipaddr 传入目标IP，或者传自己的IP
  * @return 请求结果
  */
-xnet_err_e xarp_make_request(const xip_addr_u *target_ipaddr) {
+xnet_status_t xarp_make_request(const xip_addr_u *target_ipaddr) {
     // 新建 arp_packet 和 packet
     xarp_packet_t* arp_packet;
     xnet_packet_t* xnet_packet = prepare_packet_for_send(sizeof(xarp_packet_t));
@@ -73,7 +72,7 @@ xnet_err_e xarp_make_request(const xip_addr_u *target_ipaddr) {
     arp_packet->hardware_len = XNET_MAC_ADDR_SIZE;
     arp_packet->protocol_len = XNET_IPV4_ADDR_SIZE;
     arp_packet->opcode = swap_order16(XARP_REQUEST);
-    memcpy(arp_packet->sender_mac, netif_mac, XNET_MAC_ADDR_SIZE);
+    memcpy(arp_packet->sender_mac, my_netif_mac, XNET_MAC_ADDR_SIZE);
     memcpy(arp_packet->sender_ip, netif_ipaddr.array, XNET_IPV4_ADDR_SIZE);
     memset(arp_packet->target_mac, 0, XNET_MAC_ADDR_SIZE);
     memcpy(arp_packet->target_ip, target_ipaddr->array, XNET_IPV4_ADDR_SIZE);
@@ -85,9 +84,9 @@ xnet_err_e xarp_make_request(const xip_addr_u *target_ipaddr) {
  * 以太网初始化，此时会写入协议栈 mac 地址
  * @return 初始化结果
  */
-xnet_err_e ethernet_init(void) {
-    xnet_err_e err = xnet_driver_open(netif_mac);
-    if (err < 0) return err;
+xnet_status_t ethernet_init(void) {
+    xnet_status_t status = xnet_driver_open(my_netif_mac);
+    if (status < 0) return status;
     // 全网广播自己的 mac 地址，target ip设置自己
     return xarp_make_request(&netif_ipaddr);
 }
@@ -99,7 +98,7 @@ xnet_err_e ethernet_init(void) {
  * @param arp_in_packet 接收到的ARP请求包
  * @return 生成结果
  */
-xnet_err_e xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
+xnet_status_t xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
     xarp_packet_t* arp_packet;
     xnet_packet_t* packet = prepare_packet_for_send(sizeof(xarp_packet_t));
 
@@ -109,7 +108,7 @@ xnet_err_e xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
     arp_packet->hardware_len = XNET_MAC_ADDR_SIZE;
     arp_packet->protocol_len = XNET_IPV4_ADDR_SIZE;
     arp_packet->opcode = swap_order16(XARP_REPLY);
-    memcpy(arp_packet->sender_mac, netif_mac, XNET_MAC_ADDR_SIZE);
+    memcpy(arp_packet->sender_mac, my_netif_mac, XNET_MAC_ADDR_SIZE);
     memcpy(arp_packet->sender_ip, netif_ipaddr.array, XNET_IPV4_ADDR_SIZE);
     memcpy(arp_packet->target_mac, target_mac, XNET_MAC_ADDR_SIZE);
     memcpy(arp_packet->target_ip, target_ip, XNET_IPV4_ADDR_SIZE);
@@ -195,7 +194,7 @@ void ethernet_in(xnet_packet_t* packet) {
 void ethernet_poll(void) {
     xnet_packet_t* packet;
     // 此处使用二级指针，给packet赋值
-    if (xnet_driver_read(&packet) == XNET_ERR_OK) {
+    if (xnet_driver_read(&packet) == XNET_OK) {
         // 只要轮询到了数据，就会进入这里
         // 正常情况下，在此打个断点，全速运行
         // 然后在对方端ping 192.168.254.2，会停在这里

@@ -89,17 +89,17 @@ void xip_in(xnet_packet_t* packet) {
  * @param packet 待发送IP数据包
  * @return 发送结果
  */
-static xnet_err_e resolve_and_send(xip_addr_u* dest_ip, xnet_packet_t* packet) {
-    xnet_err_e err;
+static xnet_status_t resolve_and_send(xip_addr_u* dest_ip, xnet_packet_t* packet) {
+    xnet_status_t err;
     uint8_t* mac_addr;
 
-    if ((err = xarp_resolve(dest_ip, &mac_addr) == XNET_ERR_OK)) {
+    if ((err = xarp_resolve(dest_ip, &mac_addr) == XNET_OK)) {
         return ethernet_out_to(XNET_PROTOCOL_IP, mac_addr, packet);
     }
     return err;
 }
 
-xnet_err_e xip_out(xnet_protocol_e protocol, xip_addr_u* dest_ip, xnet_packet_t * packet) {
+xnet_status_t xip_out(xnet_protocol_t protocol, xip_addr_u* dest_ip, xnet_packet_t * packet) {
     static uint32_t ip_packet_id = 0;
     xip_hdr_t * iphdr;
 

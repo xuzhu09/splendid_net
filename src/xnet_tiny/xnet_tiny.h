@@ -15,11 +15,11 @@
 #define xipaddr_is_equal(addr1, addr2)       ((addr1)->value == (addr2)->value)
 
 // 错误码枚举
-typedef enum _xnet_err_e {
-    XNET_ERR_OK = 0,
+typedef enum _xnet_status_t {
+    XNET_OK = 0,
     XNET_ERR_IO = -1,
-    XNET_ERR_NONE = -2,
-} xnet_err_e;
+    XNET_ERR_PARAM = -2,
+} xnet_status_t;
 
 // 网络数据包
 typedef struct _xnet_packet_t {
@@ -38,22 +38,22 @@ xnet_packet_t* prepare_packet_for_send(uint16_t size);
 xnet_packet_t* prepare_packet_for_read(uint16_t size);
 
 // 打开驱动
-xnet_err_e xnet_driver_open(uint8_t* mac_addr);
+xnet_status_t xnet_driver_open(uint8_t* mac_addr);
 
 // 通过驱动发送数据包
-xnet_err_e xnet_driver_send(xnet_packet_t* packet);
+xnet_status_t xnet_driver_send(xnet_packet_t* packet);
 
 // 通过驱动读取数据包
-xnet_err_e xnet_driver_read(xnet_packet_t** packet);
+xnet_status_t xnet_driver_read(xnet_packet_t** packet);
 
 void add_header(xnet_packet_t* packet, uint16_t header_size);
 void remove_header(xnet_packet_t* packet, uint16_t header_size);
 void truncate_packet(xnet_packet_t* packet, uint16_t size);
 
-typedef enum _xnet_protocol_e {
+typedef enum _xnet_protocol_t {
     XNET_PROTOCOL_ARP = 0x0806, // ARP协议
     XNET_PROTOCOL_IP = 0x0800, // IP协议
-} xnet_protocol_e;
+} xnet_protocol_t;
 
 // IP地址，使用共用体，节省空间
 typedef union _xip_addr_u {

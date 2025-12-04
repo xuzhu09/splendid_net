@@ -106,12 +106,12 @@ int xnet_check_tmo(xnet_time_t* last_time, uint32_t gap_time) {
  * @param mac_addr 返回的mac地址存储区
  * @return XNET_ERR_OK 查找成功，XNET_ERR_NONE 查找失败
  */
-xnet_err_e xarp_resolve(const xip_addr_u* ipaddr, uint8_t** mac_addr) {
+xnet_status_t xarp_resolve(const xip_addr_u* ipaddr, uint8_t** mac_addr) {
     if ((arp_entry.state == XARP_ENTRY_OK) && xipaddr_is_equal(ipaddr, &arp_entry.ipaddr)) {
         *mac_addr = arp_entry.macaddr;
-        return XNET_ERR_OK;
+        return XNET_OK;
     }
 
     xarp_make_request(ipaddr);
-    return XNET_ERR_NONE;
+    return XNET_ERR_PARAM;
 }

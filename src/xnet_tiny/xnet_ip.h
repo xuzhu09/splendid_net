@@ -28,6 +28,6 @@ typedef struct _xip_hdr_t {
 
 void xip_init(void);
 void xip_in(xnet_packet_t* packet);
-xnet_err_e xip_out(xnet_protocol_e protocol, xip_addr_u* dest_ip, xnet_packet_t * packet);
+xnet_status_t xip_out(xnet_protocol_t protocol, xip_addr_u* dest_ip, xnet_packet_t * packet);
 
 #endif //XNET_IP_H
