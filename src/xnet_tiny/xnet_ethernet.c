@@ -13,7 +13,7 @@
 #define XARP_REPLY                  0x2         // ARP响应包
 
 static uint8_t my_netif_mac[XNET_MAC_ADDR_SIZE]; // 协议栈mac地址,由驱动回写
-static const uint8_t ether_broadcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // arp广播，mac专用地址
+static const uint8_t ether_broadcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // 以太网广播mac地址
 
 // 关闭填充字节
 #pragma pack(1)
@@ -61,23 +61,22 @@ xnet_status_t ethernet_out_to(xnet_protocol_t protocol, const uint8_t* target_ma
  * @return 请求结果
  */
 xnet_status_t xarp_make_request(const xip_addr_u *target_ipaddr) {
-    // 新建 arp_packet 和 packet
-    xarp_packet_t* arp_packet;
+    // 准备一个发送包
     xnet_packet_t* xnet_packet = prepare_packet_for_send(sizeof(xarp_packet_t));
 
     // 让 arp_packet 指向 data 首地址，配置载荷
-    arp_packet = (xarp_packet_t*) xnet_packet->data_start;
+    xarp_packet_t* arp_packet = (xarp_packet_t*) xnet_packet->data_start;
     arp_packet->hardware_type = swap_order16(XARP_HW_ETHER);
     arp_packet->protocol_type = swap_order16(XNET_PROTOCOL_IP);
     arp_packet->hardware_len = XNET_MAC_ADDR_SIZE;
     arp_packet->protocol_len = XNET_IPV4_ADDR_SIZE;
     arp_packet->opcode = swap_order16(XARP_REQUEST);
     memcpy(arp_packet->sender_mac, my_netif_mac, XNET_MAC_ADDR_SIZE);
-    memcpy(arp_packet->sender_ip, netif_ipaddr.array, XNET_IPV4_ADDR_SIZE);
+    memcpy(arp_packet->sender_ip, xnet_host_ip.array, XNET_IPV4_ADDR_SIZE);
     memset(arp_packet->target_mac, 0, XNET_MAC_ADDR_SIZE);
     memcpy(arp_packet->target_ip, target_ipaddr->array, XNET_IPV4_ADDR_SIZE);
     // 发送ARP请求，多播
-    return ethernet_out_to(XNET_PROTOCOL_ARP, ether_broadcast, xnet_packet);
+    return ethernet_out_to(XNET_PROTOCOL_ARP, ether_broadcast_mac, xnet_packet);
 }
 
 /**
@@ -88,7 +87,7 @@ xnet_status_t ethernet_init(void) {
     xnet_status_t status = xnet_driver_open(my_netif_mac);
     if (status < 0) return status;
     // 全网广播自己的 mac 地址，target ip设置自己
-    return xarp_make_request(&netif_ipaddr);
+    return xarp_make_request(&xnet_host_ip);
 }
 
 /**
@@ -109,7 +108,7 @@ xnet_status_t xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
     arp_packet->protocol_len = XNET_IPV4_ADDR_SIZE;
     arp_packet->opcode = swap_order16(XARP_REPLY);
     memcpy(arp_packet->sender_mac, my_netif_mac, XNET_MAC_ADDR_SIZE);
-    memcpy(arp_packet->sender_ip, netif_ipaddr.array, XNET_IPV4_ADDR_SIZE);
+    memcpy(arp_packet->sender_ip, xnet_host_ip.array, XNET_IPV4_ADDR_SIZE);
     memcpy(arp_packet->target_mac, target_mac, XNET_MAC_ADDR_SIZE);
     memcpy(arp_packet->target_ip, target_ip, XNET_IPV4_ADDR_SIZE);
     // 发送ARP响应，单播
@@ -142,7 +141,7 @@ void xarp_in(xnet_packet_t* packet) {
     }
 
     // 只处理发给自己的ARP
-    if (!xipaddr_is_equal_buf(netif_ipaddr.array, arp_packet->target_ip)) {
+    if (!xipaddr_is_equal_buf(xnet_host_ip.array, arp_packet->target_ip)) {
         return;
     }
 

@@ -68,7 +68,7 @@ void xip_in(xnet_packet_t* packet) {
     }
 
     // 只处理目标IP为自己的数据包，其它广播之类的IP全部丢掉
-    if (!xipaddr_is_equal_buf(netif_ipaddr.array, iphdr->dest_ip)) {
+    if (!xipaddr_is_equal_buf(xnet_host_ip.array, iphdr->dest_ip)) {
         return;
     }
 
@@ -114,7 +114,7 @@ xnet_status_t xip_out(xnet_protocol_t protocol, xip_addr_u* dest_ip, xnet_packet
     iphdr->ttl = XNET_IP_DEFAULT_TTL;
     iphdr->protocol = protocol;
     memcpy(iphdr->dest_ip, dest_ip->array, XNET_IPV4_ADDR_SIZE);
-    memcpy(iphdr->src_ip, netif_ipaddr.array, XNET_IPV4_ADDR_SIZE);
+    memcpy(iphdr->src_ip, xnet_host_ip.array, XNET_IPV4_ADDR_SIZE);
     iphdr->hdr_checksum = 0;
     iphdr->hdr_checksum = checksum16((uint16_t *)iphdr, sizeof(xip_hdr_t), 0, 1);;
 

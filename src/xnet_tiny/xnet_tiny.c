@@ -9,7 +9,7 @@
 #define min(a, b)               ((a) > (b) ? (b) : (a))
 
 static xnet_packet_t tx_packet, rx_packet; // 接收与发送缓冲区
-const xip_addr_u netif_ipaddr = XNET_CFG_NETIF_IP; // 协议栈的IP地址
+const xip_addr_u xnet_host_ip = XNET_CFG_DEFAULT_IP; // 协议栈的IP地址
 
 /**
  * 为发包添加一个头部
