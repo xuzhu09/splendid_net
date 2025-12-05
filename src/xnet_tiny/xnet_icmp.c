@@ -12,7 +12,7 @@ void xicmp_init(void) {
 
 static xnet_status_t reply_icmp_request(xicmp_hdr_t* icmp_hdr, xip_addr_t* src_ip, xnet_packet_t* packet) {
     // 答复继续使用
-    xnet_packet_t* reply_packet = prepare_packet_for_send(packet->data_length);
+    xnet_packet_t* reply_packet = xnet_alloc_tx_packet(packet->data_length);
     xicmp_hdr_t* reply_hdr = (xicmp_hdr_t*)reply_packet->data_start;
 
     reply_hdr->type = XICMP_CODE_ECHO_REPLY;

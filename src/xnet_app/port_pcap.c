@@ -52,7 +52,7 @@ xnet_status_t xnet_driver_send(xnet_packet_t* packet) {
  */
 xnet_status_t xnet_driver_read(xnet_packet_t** packet) {
     uint16_t size;
-    xnet_packet_t* r_packet = prepare_packet_for_read(XNET_CFG_PACKET_MAX_SIZE);
+    xnet_packet_t* r_packet = xnet_alloc_rx_packet(XNET_CFG_PACKET_MAX_SIZE);
 
     size = pcap_device_read(pcap, r_packet->data_start, XNET_CFG_PACKET_MAX_SIZE);
     if (size) {

@@ -64,7 +64,7 @@ xnet_status_t ethernet_out_to(xnet_protocol_t protocol, const uint8_t* target_ma
 xnet_status_t xarp_make_request(const xip_addr_t* target_ipaddr) {
     // 准备一个发送包
     xarp_packet_t* arp_packet;
-    xnet_packet_t* xnet_packet = prepare_packet_for_send(sizeof(xarp_packet_t));
+    xnet_packet_t* xnet_packet = xnet_alloc_tx_packet(sizeof(xarp_packet_t));
 
     // 让 arp_packet 指向 data 首地址，配置载荷
     arp_packet = (xarp_packet_t*) xnet_packet->data_start;
@@ -101,7 +101,7 @@ xnet_status_t ethernet_init(void) {
  */
 xnet_status_t xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
     xarp_packet_t* arp_packet;
-    xnet_packet_t* packet = prepare_packet_for_send(sizeof(xarp_packet_t));
+    xnet_packet_t* packet = xnet_alloc_tx_packet(sizeof(xarp_packet_t));
 
     arp_packet = (xarp_packet_t*) packet->data_start;
     arp_packet->hardware_type = swap_order16(XARP_HW_ETHER);

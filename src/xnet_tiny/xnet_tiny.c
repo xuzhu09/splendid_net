@@ -48,7 +48,7 @@ void truncate_packet(xnet_packet_t* packet, uint16_t size) {
  * @param size 数据空间大小
  * @return 分配得到的包结构
  */
-xnet_packet_t* prepare_packet_for_send(uint16_t size) {
+xnet_packet_t* xnet_alloc_tx_packet(uint16_t size) {
     // 从tx_packet的后端往前分配，因为前边要预留作为各种协议的头部数据存储空间
     tx_packet.data_start = tx_packet.buffer + XNET_CFG_PACKET_MAX_SIZE - size;
     tx_packet.data_length = size;
@@ -60,7 +60,7 @@ xnet_packet_t* prepare_packet_for_send(uint16_t size) {
  * @param size 数据空间大小
  * @return 分配得到的数据包
  */
-xnet_packet_t* prepare_packet_for_read(uint16_t size) {
+xnet_packet_t* xnet_alloc_rx_packet(uint16_t size) {
     // 从最开始进行分配，用于最底层的网络数据帧读取
     rx_packet.data_start = rx_packet.buffer;
     rx_packet.data_length = size;
