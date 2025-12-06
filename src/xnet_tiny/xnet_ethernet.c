@@ -47,7 +47,7 @@ xnet_status_t ethernet_out_to(xnet_protocol_t protocol, const uint8_t* target_ma
     add_header(packet, sizeof(xether_hdr_t));
 
     // 填充头部数据
-    ether_hdr = (xether_hdr_t*) packet->data_start;
+    ether_hdr = (xether_hdr_t*) packet->data;
     memcpy(ether_hdr->dest, target_mac_addr, XNET_MAC_ADDR_SIZE);
     memcpy(ether_hdr->src, xnet_local_mac, XNET_MAC_ADDR_SIZE);
     ether_hdr->protocol = swap_order16(protocol);
@@ -67,7 +67,7 @@ xnet_status_t xarp_make_request(const xip_addr_t* target_ipaddr) {
     xnet_packet_t* xnet_packet = xnet_alloc_tx_packet(sizeof(xarp_packet_t));
 
     // 让 arp_packet 指向 data 首地址，配置载荷
-    arp_packet = (xarp_packet_t*) xnet_packet->data_start;
+    arp_packet = (xarp_packet_t*) xnet_packet->data;
     arp_packet->hardware_type = swap_order16(XARP_HW_ETHER);
     arp_packet->protocol_type = swap_order16(XNET_PROTOCOL_IP);
     arp_packet->hardware_len = XNET_MAC_ADDR_SIZE;
@@ -103,7 +103,7 @@ xnet_status_t xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
     xarp_packet_t* arp_packet;
     xnet_packet_t* packet = xnet_alloc_tx_packet(sizeof(xarp_packet_t));
 
-    arp_packet = (xarp_packet_t*) packet->data_start;
+    arp_packet = (xarp_packet_t*) packet->data;
     arp_packet->hardware_type = swap_order16(XARP_HW_ETHER);
     arp_packet->protocol_type = swap_order16(XNET_PROTOCOL_IP);
     arp_packet->hardware_len = XNET_MAC_ADDR_SIZE;
@@ -123,10 +123,10 @@ xnet_status_t xarp_make_response(uint8_t* target_ip, uint8_t* target_mac) {
  */
 void xarp_in(xnet_packet_t* packet) {
     // 如果小于，说明数据错误，直接忽略这个arp请求
-    if (packet->data_length < sizeof(xarp_packet_t)) return;
+    if (packet->length < sizeof(xarp_packet_t)) return;
 
     // 包的合法性检查
-    xarp_packet_t* arp_packet = (xarp_packet_t*) packet->data_start;
+    xarp_packet_t* arp_packet = (xarp_packet_t*) packet->data;
     uint16_t opcode = swap_order16(arp_packet->opcode);
     if ((swap_order16(arp_packet->hardware_type) != XARP_HW_ETHER) ||
         (arp_packet->hardware_len != XNET_MAC_ADDR_SIZE) ||
@@ -169,12 +169,12 @@ void xarp_in(xnet_packet_t* packet) {
  */
 void ethernet_in(xnet_packet_t* packet) {
     // 数据至少要比以太网头部大
-    if (packet->data_length <= sizeof(xether_hdr_t)) {
+    if (packet->length <= sizeof(xether_hdr_t)) {
         return;
     }
 
     // 往上分解到各个协议处理
-    xether_hdr_t* hdr = (xether_hdr_t*) packet->data_start;
+    xether_hdr_t* hdr = (xether_hdr_t*) packet->data;
     // 协议类型占用两个字节，需要大小端转换
     switch (swap_order16(hdr->protocol)) {
         case XNET_PROTOCOL_ARP:

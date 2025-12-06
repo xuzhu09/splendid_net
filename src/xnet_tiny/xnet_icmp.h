@@ -5,6 +5,7 @@
 #ifndef XNET_ICMP_H
 #define XNET_ICMP_H
 
+#include "xnet_ip.h"
 #include "xnet_tiny.h"
 
 #pragma pack(1) // 必须强制 1 字节对齐，防止编译器乱填空隙
@@ -18,10 +19,15 @@ typedef struct _xicmp_hdr_t {
 } xicmp_hdr_t;
 #pragma pack()
 
-#define XICMP_CODE_ECHO_REQUEST 8
-#define XICMP_CODE_ECHO_REPLY 0
+#define XICMP_CODE_ECHO_REQUEST     8
+#define XICMP_CODE_ECHO_REPLY       0
+
+#define XICMP_TYPE_UNREACH          3
+#define XICMP_CODE_PORT_UNREACH     3
+#define XICMP_CODE_PRO_UNREACH      2
 
 void xicmp_init(void);
 void xicmp_in(xip_addr_t* src_ip, xnet_packet_t* packet);
+xnet_status_t xicmp_dest_unreach(uint8_t code, xip_hdr_t* ip_hdr) ;
 
 #endif //XNET_ICMP_H

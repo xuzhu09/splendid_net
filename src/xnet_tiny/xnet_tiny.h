@@ -12,6 +12,7 @@
 #define xip_addr_eq(a, b)  (memcmp((a), (b), XNET_IPV4_ADDR_SIZE) == 0)
 #define XNET_IPV4_ADDR_SIZE             4                   // IP地址长度
 #define XNET_MAC_ADDR_SIZE              6                   // MAC地址长度
+#define min(a, b)               ((a) > (b) ? (b) : (a))
 
 // 错误码枚举
 typedef enum _xnet_status_t {
@@ -22,8 +23,8 @@ typedef enum _xnet_status_t {
 
 // 网络数据包
 typedef struct _xnet_packet_t {
-    uint16_t data_length;                          // 包中有效数据大小（因为并不一定会占满缓冲区）
-    uint8_t* data_start;                           // 包的数据起始地址
+    uint16_t length;                          // 包中有效数据大小（因为并不一定会占满缓冲区）
+    uint8_t* data;                           // 包的数据起始地址
     uint8_t buffer[XNET_CFG_PACKET_MAX_SIZE];      // 缓冲区
 } xnet_packet_t;
 

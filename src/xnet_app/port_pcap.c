@@ -41,7 +41,7 @@ xnet_status_t xnet_driver_open(uint8_t* mac_addr) {
  * @return 0 - 成功，其它失败
  */
 xnet_status_t xnet_driver_send(xnet_packet_t* packet) {
-    return pcap_device_send(pcap, packet->data_start, packet->data_length);
+    return pcap_device_send(pcap, packet->data, packet->length);
 }
 
 /**
@@ -54,9 +54,9 @@ xnet_status_t xnet_driver_read(xnet_packet_t** packet) {
     uint16_t size;
     xnet_packet_t* r_packet = xnet_alloc_rx_packet(XNET_CFG_PACKET_MAX_SIZE);
 
-    size = pcap_device_read(pcap, r_packet->data_start, XNET_CFG_PACKET_MAX_SIZE);
+    size = pcap_device_read(pcap, r_packet->data, XNET_CFG_PACKET_MAX_SIZE);
     if (size) {
-        r_packet->data_length = size;
+        r_packet->length = size;
         *packet = r_packet;
         return XNET_OK;
     }

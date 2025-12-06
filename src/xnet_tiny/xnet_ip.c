@@ -44,7 +44,7 @@ void xip_init(void) {
 }
 
 void xip_in(xnet_packet_t* packet) {
-    xip_hdr_t* ip_hdr = (xip_hdr_t*) packet->data_start;
+    xip_hdr_t* ip_hdr = (xip_hdr_t*) packet->data;
     uint32_t total_size, header_size;
     uint16_t pre_checksum;
     xip_addr_t src_ip;
@@ -57,7 +57,7 @@ void xip_in(xnet_packet_t* packet) {
     // 长度要求检查
     header_size = ip_hdr->hdr_len * 4;
     total_size = swap_order16(ip_hdr->total_len);
-    if ((header_size < sizeof(xip_hdr_t)) || ((total_size < header_size) || (packet->data_length < total_size))) {
+    if ((header_size < sizeof(xip_hdr_t)) || ((total_size < header_size) || (packet->length < total_size))) {
         return;
     }
 
@@ -67,6 +67,7 @@ void xip_in(xnet_packet_t* packet) {
     if (pre_checksum != checksum16((uint16_t*)ip_hdr, header_size, 0, 1)) {
         return;
     }
+    ip_hdr->hdr_checksum = pre_checksum; //恢复校验和
 
     // 只处理目标IP为自己的数据包，其它广播之类的IP全部丢掉
     if (!xip_addr_eq(xnet_local_ip.addr, ip_hdr->dest_ip)) {
@@ -80,6 +81,7 @@ void xip_in(xnet_packet_t* packet) {
             xicmp_in(&src_ip, packet);
             break;
         default:
+            xicmp_dest_unreach(XICMP_CODE_PRO_UNREACH, ip_hdr);
             break;
     }
 }
@@ -112,11 +114,11 @@ xnet_status_t xip_out(xnet_protocol_t protocol, xip_addr_t* dest_ip, xnet_packet
     xip_hdr_t* ip_hdr;
     // 添加ip头部
     add_header(packet, sizeof(xip_hdr_t));
-    ip_hdr = (xip_hdr_t*)packet->data_start;
+    ip_hdr = (xip_hdr_t*)packet->data;
     ip_hdr->version = XNET_VERSION_IPV4;
     ip_hdr->hdr_len = sizeof(xip_hdr_t) / 4;
     ip_hdr->tos = 0; //不支持，填0
-    ip_hdr->total_len = swap_order16(packet->data_length);
+    ip_hdr->total_len = swap_order16(packet->length);
     ip_hdr->id = swap_order16(ip_packet_id);
     ip_hdr->flags_fragment = 0; //不支持，填0
     ip_hdr->ttl = XNET_IP_DEFAULT_TTL;

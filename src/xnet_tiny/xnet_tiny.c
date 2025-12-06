@@ -7,8 +7,6 @@
 #include "xnet_ip.h"
 #include "xnet_icmp.h"
 
-#define min(a, b)               ((a) > (b) ? (b) : (a))
-
 static xnet_packet_t tx_packet, rx_packet; // 接收与发送缓冲区
 const xip_addr_t xnet_local_ip = XNET_CFG_DEFAULT_IP; // 协议栈的IP地址
 
@@ -19,8 +17,8 @@ const xip_addr_t xnet_local_ip = XNET_CFG_DEFAULT_IP; // 协议栈的IP地址
  */
 void add_header(xnet_packet_t* packet, uint16_t header_size) {
     // 指针前移
-    packet->data_start -= header_size;
-    packet->data_length += header_size;
+    packet->data -= header_size;
+    packet->length += header_size;
 }
 
 /**
@@ -30,8 +28,8 @@ void add_header(xnet_packet_t* packet, uint16_t header_size) {
  */
 void remove_header(xnet_packet_t* packet, uint16_t header_size) {
     // 指针后移
-    packet->data_start += header_size;
-    packet->data_length -= header_size;
+    packet->data += header_size;
+    packet->length -= header_size;
 }
 
 /**
@@ -40,7 +38,7 @@ void remove_header(xnet_packet_t* packet, uint16_t header_size) {
  * @param size 最终大小
  */
 void truncate_packet(xnet_packet_t* packet, uint16_t size) {
-    packet->data_length = min(packet->data_length, size);
+    packet->length = min(packet->length, size);
 }
 
 /**
@@ -50,8 +48,8 @@ void truncate_packet(xnet_packet_t* packet, uint16_t size) {
  */
 xnet_packet_t* xnet_alloc_tx_packet(uint16_t size) {
     // 从tx_packet的后端往前分配，因为前边要预留作为各种协议的头部数据存储空间
-    tx_packet.data_start = tx_packet.buffer + XNET_CFG_PACKET_MAX_SIZE - size;
-    tx_packet.data_length = size;
+    tx_packet.data = tx_packet.buffer + XNET_CFG_PACKET_MAX_SIZE - size;
+    tx_packet.length = size;
     return &tx_packet;
 }
 
@@ -62,8 +60,8 @@ xnet_packet_t* xnet_alloc_tx_packet(uint16_t size) {
  */
 xnet_packet_t* xnet_alloc_rx_packet(uint16_t size) {
     // 从最开始进行分配，用于最底层的网络数据帧读取
-    rx_packet.data_start = rx_packet.buffer;
-    rx_packet.data_length = size;
+    rx_packet.data = rx_packet.buffer;
+    rx_packet.length = size;
     return &rx_packet;
 }
 
