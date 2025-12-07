@@ -7,4 +7,6 @@ add_library(xnet_tiny  ${DIR_HELLO_SRCS}
         xnet_ip.h
         xnet_ip.c
         xnet_icmp.h
-        xnet_icmp.c)
+        xnet_icmp.c
+        xnet_udp.h
+        xnet_udp.c)

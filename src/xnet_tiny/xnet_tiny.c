@@ -6,6 +6,7 @@
 #include "xnet_arp.h"
 #include "xnet_ip.h"
 #include "xnet_icmp.h"
+#include "xnet_udp.h"
 
 static xnet_packet_t tx_packet, rx_packet; // 接收与发送缓冲区
 const xip_addr_t xnet_local_ip = XNET_CFG_DEFAULT_IP; // 协议栈的IP地址
@@ -73,6 +74,7 @@ void xnet_init(void) {
     xarp_init();
     xip_init();
     xicmp_init();
+    xudp_init();
 }
 
 /**
