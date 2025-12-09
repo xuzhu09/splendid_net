@@ -5,9 +5,9 @@
 #ifndef XNET_UDP_H
 #define XNET_UDP_H
 
-#define XUDP_CFG_MAX_UDP 10
-
 #include "xnet_tiny.h"
+
+#define XUDP_MAX_SOCKET_COUNT 10
 
 typedef struct _xudp_socket_t xudp_socket_t;
 
@@ -35,11 +35,11 @@ typedef struct _xudp_hdr_t {
 #pragma pack()
 
 void xudp_init(void);
-void xudp_in(xudp_socket_t* udp_socket, xip_addr_t* src_ip, xnet_packet_t* packet);
-xnet_status_t xudp_out(xudp_socket_t* udp_socket, xip_addr_t* dest_ip, uint16_t dest_port, xnet_packet_t* packet);
-xudp_socket_t* xudp_open(xudp_handler_t handler);
-void xudp_close(xudp_socket_t* udp_socket);
-xudp_socket_t* xudp_find(uint16_t port);
-xnet_status_t xudp_bind(xudp_socket_t* udp_socket, uint16_t port);
+xudp_socket_t* xudp_alloc_socket(xudp_handler_t handler);
+void xudp_free_socket(xudp_socket_t* socket);
+xudp_socket_t* xudp_find_socket(uint16_t port);
+xnet_status_t xudp_bind_socket(xudp_socket_t* socket, uint16_t port);
+void xudp_input(xudp_socket_t* socket, xip_addr_t* src_ip, xnet_packet_t* packet);
+xnet_status_t xudp_send_to(xudp_socket_t* socket, xip_addr_t* dest_ip, uint16_t dest_port, xnet_packet_t* packet);
 
 #endif //XNET_UDP_H

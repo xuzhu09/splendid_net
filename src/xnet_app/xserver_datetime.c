@@ -21,11 +21,11 @@ xnet_status_t datetime_handler(xudp_socket_t * udp_socket, xip_addr_t* src_ip, u
     truncate_packet(tx_packet, str_size);
 
     // 发送
-    return xudp_out(udp_socket, src_ip, src_port, tx_packet);
+    return xudp_send_to(udp_socket, src_ip, src_port, tx_packet);
 }
 
 xnet_status_t xserver_datetime_create(uint16_t port) {
-    xudp_socket_t * udp = xudp_open(datetime_handler);
-    xudp_bind(udp, port);
+    xudp_socket_t * udp = xudp_alloc_socket(datetime_handler);
+    xudp_bind_socket(udp, port);
     return XNET_OK;
 }

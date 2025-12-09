@@ -7,13 +7,13 @@
 
 #include <string.h>
 
-static xudp_socket_t udp_socket_pool[XUDP_CFG_MAX_UDP];
+static xudp_socket_t udp_socket_pool[XUDP_MAX_SOCKET_COUNT];
 
 void xudp_init(void) {
     memset(udp_socket_pool, 0, sizeof(udp_socket_pool));
 }
 
-void xudp_in(xudp_socket_t* udp_socket, xip_addr_t* src_ip, xnet_packet_t* packet)
+void xudp_input(xudp_socket_t* socket, xip_addr_t* src_ip, xnet_packet_t* packet)
 {
     xudp_hdr_t* udp_hdr = (xudp_hdr_t*) packet->data;
     uint16_t pre_checksum;
@@ -51,19 +51,19 @@ void xudp_in(xudp_socket_t* udp_socket, xip_addr_t* src_ip, xnet_packet_t* packe
     remove_header(packet, sizeof(xudp_hdr_t));
 
     // 检查 socket 是否有注册的处理函数 (handler)
-    if (udp_socket->handler) {
+    if (socket->handler) {
         // 调用注册的处理函数，将数据包转发给上层应用
-        udp_socket->handler(udp_socket, src_ip, src_port, packet);
+        socket->handler(socket, src_ip, src_port, packet);
     }
 }
 
-xnet_status_t xudp_out(xudp_socket_t* udp_socket, xip_addr_t* dest_ip, uint16_t dest_port, xnet_packet_t* packet) {
+xnet_status_t xudp_send_to(xudp_socket_t* socket, xip_addr_t* dest_ip, uint16_t dest_port, xnet_packet_t* packet) {
     xudp_hdr_t * udp_hdr;
     uint16_t checksum;
 
     add_header(packet, sizeof(xudp_hdr_t));
     udp_hdr = (xudp_hdr_t*)packet->data;
-    udp_hdr->src_port = swap_order16(udp_socket->local_port);
+    udp_hdr->src_port = swap_order16(socket->local_port);
     udp_hdr->dest_port = swap_order16(dest_port);
     udp_hdr->total_len = swap_order16(packet->length);
     udp_hdr->checksum = 0;
@@ -72,9 +72,9 @@ xnet_status_t xudp_out(xudp_socket_t* udp_socket, xip_addr_t* dest_ip, uint16_t 
     return xip_out(XNET_PROTOCOL_UDP, dest_ip, packet);
 }
 
-xudp_socket_t* xudp_open(xudp_handler_t handler) {
+xudp_socket_t* xudp_alloc_socket(xudp_handler_t handler) {
     // 1. 遍历资源池
-    for (xudp_socket_t* cur = udp_socket_pool; cur < &udp_socket_pool[XUDP_CFG_MAX_UDP]; cur++) {
+    for (xudp_socket_t* cur = udp_socket_pool; cur < &udp_socket_pool[XUDP_MAX_SOCKET_COUNT]; cur++) {
 
         // 2. 检查是否占用
         if (cur->state == XUDP_STATE_FREE) {
@@ -87,12 +87,12 @@ xudp_socket_t* xudp_open(xudp_handler_t handler) {
     return NULL;
 }
 
-void xudp_close(xudp_socket_t* udp_socket) {
-    udp_socket->state = XUDP_STATE_FREE;
+void xudp_free_socket(xudp_socket_t* socket) {
+    socket->state = XUDP_STATE_FREE;
 }
 
-xudp_socket_t* xudp_find(uint16_t port) {
-    for (xudp_socket_t* curr = udp_socket_pool; curr < &udp_socket_pool[XUDP_CFG_MAX_UDP]; curr++) {
+xudp_socket_t* xudp_find_socket(uint16_t port) {
+    for (xudp_socket_t* curr = udp_socket_pool; curr < &udp_socket_pool[XUDP_MAX_SOCKET_COUNT]; curr++) {
         if (curr->state == XUDP_STATE_USED && curr->local_port == port) {
             return curr;
         }
@@ -100,14 +100,14 @@ xudp_socket_t* xudp_find(uint16_t port) {
     return NULL;
 }
 
-xnet_status_t xudp_bind(xudp_socket_t* udp_socket, uint16_t port) {
+xnet_status_t xudp_bind_socket(xudp_socket_t* socket, uint16_t port) {
     // 1. 是否已占用
-    for (xudp_socket_t* curr = udp_socket_pool; curr < &udp_socket_pool[XUDP_CFG_MAX_UDP]; curr++) {
+    for (xudp_socket_t* curr = udp_socket_pool; curr < &udp_socket_pool[XUDP_MAX_SOCKET_COUNT]; curr++) {
         if (curr->state == XUDP_STATE_USED && curr->local_port == port) {
             return XNET_ERR_BINDED;
         }
     }
     // 2. 绑定
-    udp_socket->local_port = port;
+    socket->local_port = port;
     return XNET_OK;
 }

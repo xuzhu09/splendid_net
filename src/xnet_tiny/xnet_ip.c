@@ -109,10 +109,10 @@ void xip_in(xnet_packet_t* packet) {
             if (packet->length >= sizeof(xudp_hdr_t)) {
                 // 这里还没有移除ip头部，所以需要手动后移
                 xudp_hdr_t* udp_hdr = (xudp_hdr_t*)(packet->data + header_size);
-                xudp_socket_t* udp_socket = xudp_find(swap_order16(udp_hdr->dest_port));
+                xudp_socket_t* udp_socket = xudp_find_socket(swap_order16(udp_hdr->dest_port));
                 if (udp_socket) {
                     remove_header(packet, header_size);
-                    xudp_in(udp_socket, &src_ip, packet);
+                    xudp_input(udp_socket, &src_ip, packet);
                 } else {
                     xicmp_dest_unreach(XICMP_CODE_PORT_UNREACH, ip_hdr);
                 }

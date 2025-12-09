@@ -6,6 +6,7 @@
 #include "xnet_arp.h"
 #include "xnet_ip.h"
 #include "xnet_icmp.h"
+#include "xnet_tcp.h"
 #include "xnet_udp.h"
 
 static xnet_packet_t tx_packet, rx_packet; // 接收与发送缓冲区
@@ -75,6 +76,7 @@ void xnet_init(void) {
     xip_init();
     xicmp_init();
     xudp_init();
+    xtcp_init();
 }
 
 /**
