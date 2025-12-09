@@ -12,8 +12,10 @@
 
 // 2. Socket 生命周期状态
 typedef enum _xtcp_socket_state_t {
-    XTCP_STATE_FREE,    // 空闲状态
-    XTCP_STATE_USED,        // 已分配/使用中 (后续会扩展为 CLOSED, LISTEN, ESTABLISHED 等协议状态)
+    XTCP_STATE_FREE,
+    XTCP_STATE_CLOSED,
+    XTCP_STATE_LISTEN,
+    XTCP_STATE_ESTABLISHED,
 } xtcp_socket_state_t;
 
 // 3. 事件类型
@@ -28,24 +30,24 @@ typedef enum _xtcp_event_type_t {
 typedef struct _xtcp_socket_t xtcp_socket_t;
 
 // TCP 事件回调函数指针（接口）
-typedef xnet_status_t (*xtcp_event_handler_t)(xtcp_socket_t *socket, xtcp_event_type_t event);
+typedef xnet_status_t (*xtcp_event_handler_t) (xtcp_socket_t *socket, xtcp_event_type_t event);
 
 // 5. TCP Socket 结构体
 struct _xtcp_socket_t {
     xtcp_socket_state_t    state;       // Socket 的生命周期/协议状态
-
-    // 标识：端口号 (TCP 必须保存端口信息)
     uint16_t               local_port;
     uint16_t               remote_port;
     xip_addr_t             remote_ip;
-
-    // 回调函数
     xtcp_event_handler_t   handler;
 };
 
 void xtcp_init(void);
-xtcp_socket_t* xtcp_alloc_socket(void);
-void xtcp_free_socket(xtcp_socket_t* socket);
+
+xtcp_socket_t* xtcp_alloc_socket(xtcp_event_handler_t handler);
+xnet_status_t xtcp_bind_socket(xtcp_socket_t* socket, uint16_t local_port);
+xtcp_socket_t* xtcp_find_socket(xip_addr_t* remote_ip, uint16_t remote_port, uint16_t local_port);
+xnet_status_t xtcp_listen_socket(xtcp_socket_t* socket);
+xnet_status_t xtcp_close_socket(xtcp_socket_t* socket);
 
 
 #endif //XNET_TCP_H
