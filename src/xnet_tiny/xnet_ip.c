@@ -75,9 +75,6 @@ void xip_init(void) {
 
 void xip_in(xnet_packet_t* packet) {
     xip_hdr_t* ip_hdr = (xip_hdr_t*) packet->data;
-    uint32_t total_size, header_size;
-    uint16_t pre_checksum;
-    xip_addr_t src_ip;
 
     // 进行一些必要性的检查：版本号要求
     if (ip_hdr->version != XNET_VERSION_IPV4) {
@@ -85,14 +82,14 @@ void xip_in(xnet_packet_t* packet) {
     }
 
     // 长度要求检查
-    header_size = ip_hdr->hdr_len * 4;
-    total_size = swap_order16(ip_hdr->total_len);
-    if ((header_size < sizeof(xip_hdr_t)) || ((total_size < header_size) || (packet->length < total_size))) {
+    uint32_t header_size = ip_hdr->hdr_len * 4;
+    uint32_t total_length = swap_order16(ip_hdr->total_len);
+    if ((header_size < sizeof(xip_hdr_t)) || ((total_length < header_size) || (packet->length < total_length))) {
         return;
     }
 
     // 校验和要求检查
-    pre_checksum = ip_hdr->hdr_checksum; //取出原校验和
+    uint16_t pre_checksum = ip_hdr->hdr_checksum; //取出原校验和
     ip_hdr->hdr_checksum = 0; //校验和本身也会参与运算，先归零
     if (pre_checksum != checksum16((uint16_t*)ip_hdr, header_size, 0, 1)) {
         return;
@@ -103,7 +100,7 @@ void xip_in(xnet_packet_t* packet) {
     if (!xip_addr_eq(xnet_local_ip.addr, ip_hdr->dest_ip)) {
         return;
     }
-
+    xip_addr_t src_ip;
     memcpy(src_ip.addr, ip_hdr->src_ip, XNET_IPV4_ADDR_SIZE);
     switch(ip_hdr->protocol) {
         case XNET_PROTOCOL_UDP:
@@ -121,7 +118,7 @@ void xip_in(xnet_packet_t* packet) {
             break;
         case XNET_PROTOCOL_TCP:
             // 无负载的TCP包，有效数据只有54，驱动会在末尾填充到60，所以将length截断成54
-            truncate_packet(packet, total_size);
+            truncate_packet(packet, total_length);
             remove_header(packet, header_size);
             xtcp_in(&src_ip, packet);
             break;

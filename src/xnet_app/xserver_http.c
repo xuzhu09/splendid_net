@@ -26,6 +26,7 @@ static xnet_status_t http_handler(xtcp_pcb_t* pcb, xtcp_event_t event) {
             break;
         case XTCP_EVENT_DATA_RECEIVED:
             // 收到数据，直接echo
+            /*
             uint8_t* data = tx_buffer;
             uint16_t read_size = xtcp_read(pcb, tx_buffer, sizeof(tx_buffer));
             while (read_size) {
@@ -33,6 +34,7 @@ static xnet_status_t http_handler(xtcp_pcb_t* pcb, xtcp_event_t event) {
                 data += curr_size;
                 read_size -= curr_size;
             }
+            */
             break;
         case XTCP_EVENT_CLOSED:
             printf("http: connection closed\n");

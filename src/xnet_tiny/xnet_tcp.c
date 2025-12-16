@@ -11,7 +11,7 @@
 #include "xnet_ethernet.h"
 #include "xnet_ip.h"
 
-// 静态资源池
+// pcb数组，程序启动自动创建，属性全部为0
 static xtcp_pcb_t tcp_pcb_pool[XTCP_PCB_MAX_NUM];
 
 static void tcp_buf_init(xtcp_buf_t* tcp_buf) {
@@ -203,31 +203,41 @@ static xnet_status_t tcp_send_segment(xtcp_pcb_t* pcb, uint8_t flags) {
     return XNET_OK;
 }
 
-// 分配一个空闲的TCP
-static xtcp_pcb_t* xtcp_pcb_alloc() {
+// 分配一个可用pcb，使用zero alloc，避免复用污染
+static xtcp_pcb_t* xtcp_pcb_zalloc() {
     for (xtcp_pcb_t* pcb = tcp_pcb_pool; pcb < &tcp_pcb_pool[XTCP_PCB_MAX_NUM]; pcb++) {
         // 找到一个空闲的 pcb
         if (pcb->state == XTCP_STATE_FREE) {
             // 清空旧数据！
             memset(pcb, 0, sizeof(xtcp_pcb_t));
 
-            // 初始化状态和回调
-            pcb->remote_win = XTCP_MSS_DEFAULT;
-            pcb->remote_mss = XTCP_MSS_DEFAULT;
-            pcb->next_seq = pcb->unacked_seq = tcp_get_init_seq();
-            tcp_buf_init(&pcb->tx_buf);
-            tcp_buf_init(&pcb->rx_buf);
+            // 这里先置为 CLOSED，代表内存已分配但未连接
+            pcb->state = XTCP_STATE_CLOSED;
             return pcb;
         }
     }
     return NULL;
 }
 
+static void xtcp_pcb_init(xtcp_pcb_t* pcb) {
+    // 基础配置
+    pcb->remote_win = XTCP_MSS_DEFAULT;
+    pcb->remote_mss = XTCP_MSS_DEFAULT;
+
+    // 序列号随机化
+    pcb->next_seq = tcp_get_init_seq();
+    pcb->unacked_seq = pcb->next_seq; // 初始时，未确认的就是当前的
+
+    // 缓冲区初始化
+    tcp_buf_init(&pcb->tx_buf);
+    tcp_buf_init(&pcb->rx_buf);
+}
+
 static void tcp_process_accept(xtcp_pcb_t* listen_tcp, xip_addr_t* remote_ip, xtcp_hdr_t* tcp_hdr) {
     uint16_t hdr_flags = tcp_hdr->hdr_flags.all;
 
     if (hdr_flags & XTCP_FLAG_SYN) {
-        xtcp_pcb_t* child_pcb = xtcp_pcb_alloc();
+        xtcp_pcb_t* child_pcb = xtcp_pcb_zalloc();
         if (!child_pcb) return;
 
         child_pcb->state = XTCP_STATE_SYN_RECVD; // 收到了SYN请求
@@ -365,12 +375,20 @@ void xtcp_in(xip_addr_t* remote_ip, xnet_packet_t* packet) {
     }
 }
 
-// 打开TCP
+// 新建一个pcb控制块
 xtcp_pcb_t* xtcp_pcb_new(xtcp_event_handler_t handler) {
-    xtcp_pcb_t* pcb = xtcp_pcb_alloc();
-    if (!pcb) return NULL;
-    pcb->state = XTCP_STATE_CLOSED;
+    // Alloc (分配内存)
+    xtcp_pcb_t* pcb = xtcp_pcb_zalloc();
+    if (!pcb) {
+        return NULL;
+    }
+
+    // Init (协议初始化)
+    xtcp_pcb_init(pcb);
+
+    // Setup (用户自定义配置)
     pcb->event_cb = handler;
+
     return pcb;
 }
 
