@@ -93,6 +93,7 @@ struct _xtcp_pcb_t {
     uint16_t               remote_win;
     xtcp_event_handler_t   event_cb;
     xtcp_buf_t             tx_buf;
+    xtcp_buf_t             rx_buf;
 };
 
 void xtcp_init(void);
@@ -105,6 +106,7 @@ xnet_status_t xtcp_pcb_listen(xtcp_pcb_t* pcb);
 xnet_status_t xtcp_pcb_close(xtcp_pcb_t* pcb);
 
 int xtcp_write(xtcp_pcb_t* pcb, uint8_t* data, uint16_t size);
+int xtcp_read(xtcp_pcb_t* pcb, uint8_t* data, uint16_t size);
 
 
 #endif //XNET_TCP_H
