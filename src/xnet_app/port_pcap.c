@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "pcap_device.h"
 #include "xnet_tiny.h"
+#include "xnet_driver.h"
 
 static pcap_t* pcap;
 
@@ -36,6 +37,7 @@ const char default_mac_addr[] = {0x00, 0x0c, 0x29, 0xc5, 0xec, 0x62};
  * @return 0成功，其它失败
  */
 xnet_status_t xnet_driver_open(uint8_t* mac_addr) {
+    printf(">> [System Info] Initializing Driver: Windows Pcap\n");
     memcpy(mac_addr, default_mac_addr, sizeof(default_mac_addr));
     pcap = pcap_device_open(ip_str, mac_addr, 1);
     if (pcap == (pcap_t*) 0) {

@@ -3,6 +3,7 @@
  * Linux 平台下的 DPDK 驱动适配层
  */
 #include "xnet_tiny.h"
+#include "xnet_driver.h"
 #include <rte_eal.h>
 #include <rte_ethdev.h>
 #include <rte_mbuf.h>
@@ -70,6 +71,7 @@ static int port_init(uint16_t port, struct rte_mempool *mbuf_pool) {
  * 这里我们手动初始化 EAL
  */
 xnet_status_t xnet_driver_open(uint8_t* mac_addr) {
+    printf(">> [System Info] Initializing Driver: Linux DPDK\n");
     // 1. 伪造参数初始化 EAL
     // 注意：这里硬编码了参数，相当于你在命令行输入 ./splendid_net -l 0 --no-pci
     char *argv[] = {"splendid_net", "-l", "0", "--proc-type=auto"};

@@ -4,6 +4,7 @@ set(APP_SRCS
         xserver_datetime.h
         xserver_http.c
         xserver_http.h
+        xnet_driver.h
 )
 
 if(WIN32)

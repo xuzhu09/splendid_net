@@ -54,22 +54,12 @@ typedef struct _xnet_packet_t {
 } xnet_packet_t;
 
 typedef uint32_t xnet_time_t;           // 时间类型
-const xnet_time_t xsys_get_time(void);
 
 // 分配一个发送包
 xnet_packet_t* xnet_alloc_tx_packet(uint16_t size);
 
 // 分配一个读取包
 xnet_packet_t* xnet_alloc_rx_packet(uint16_t size);
-
-// 打开驱动
-xnet_status_t xnet_driver_open(uint8_t* mac_addr);
-
-// 通过驱动发送数据包
-xnet_status_t xnet_driver_send(xnet_packet_t* packet);
-
-// 通过驱动读取数据包
-xnet_status_t xnet_driver_read(xnet_packet_t** packet);
 
 void add_header(xnet_packet_t* packet, uint16_t header_size);
 void remove_header(xnet_packet_t* packet, uint16_t header_size);

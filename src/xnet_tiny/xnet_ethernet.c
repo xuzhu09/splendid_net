@@ -7,6 +7,8 @@
 
 #include <string.h>
 
+#include "xnet_driver.h"
+
 
 #define XARP_HW_ETHER               0x1         // 以太网
 #define XARP_REQUEST                0x1         // ARP请求包
