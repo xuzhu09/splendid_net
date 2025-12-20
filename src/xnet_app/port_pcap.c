@@ -14,9 +14,11 @@ static pcap_t* pcap;
  * 一般为主机 ip 地址
  */
 #ifdef _WIN32
-const char *ip_str = "192.168.254.1";
+    // Windows 主机 IP
+    const char *ip_str = "192.168.254.1";
 #else
-const char *ip_str = "192.168.189.101";
+    // Linux 主机没有 IP，56网卡被DPDK独占（下面的属性不使用）
+    const char *ip_str = "192.168.56.200";
 #endif
 
 /**

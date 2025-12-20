@@ -18,7 +18,7 @@
 
 #### 使用说明
 
-1.  xxxx
+1.  每次重启虚拟机，需要手动运行 setup_dpdk.sh 脚本
 2.  xxxx
 3.  xxxx
 

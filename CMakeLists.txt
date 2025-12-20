@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
 project(splendid_net C)
 
+# =======================================================
+# 🚀 核心修复：在这里全局开启 CPU 指令集支持
+# 放在最前面，确保 xnet_app, xnet_tiny 等所有子库都能吃到这个配置
+# =======================================================
+if(NOT WIN32)
+    add_compile_options(-march=native)
+endif()
+
 set(CMAKE_C_STANDARD 99)
 
-# 1. 包含通用路径 (Windows/Linux 都需要的)
+# 1. 包含路径
 include_directories(
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/src/xnet_app
@@ -11,56 +19,59 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/lib/xnet
 )
 
-# 2. 针对 Windows 的特殊配置
-if(WIN32)
-    # Windows 下 Npcap SDK 路径
-    set(NPCAP_SDK_DIR "C:/Users/efair/Downloads/npcap-sdk-1.15")
-
-    # 添加 Windows 特有的头文件路径
-    include_directories(${NPCAP_SDK_DIR}/Include)
-
-    # Npcap DLL 自动复制脚本 (仅在 Windows 生效)
-    set(NPCAP_DLL_DIR "$ENV{SystemRoot}/System32/Npcap")
-    set(NPCAP_RUNTIME_DLLS
-            "${NPCAP_DLL_DIR}/wpcap.dll"
-            "${NPCAP_DLL_DIR}/Packet.dll"
-    )
-    # 注意：add_custom_command 必须放在 add_executable 之后，所以这里先定义变量
+# 2. 自动发现 DPDK (Linux 专用)
+if(NOT WIN32)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(DPDK REQUIRED libdpdk)
+    include_directories(${DPDK_INCLUDE_DIRS})
+    link_directories(${DPDK_LIBRARY_DIRS})
+    add_definitions(-DALLOW_EXPERIMENTAL_API) # DPDK 必须的宏
 endif()
 
-# 3. 生成可执行文件
-add_executable(${PROJECT_NAME} lib/xnet/pcap_device.c src/app.c)
+# 3. 核心：根据系统选择不同的“驱动文件”
+if(WIN32)
+    # Windows 使用 Pcap
+    set(DRIVER_SOURCE
+            src/xnet_app/port_pcap.c
+            lib/xnet/pcap_device.c
+    )
+    # Windows Npcap 设置 (保持你原来的不变)
+    set(NPCAP_SDK_DIR "C:/Users/efair/Downloads/npcap-sdk-1.15")
+    include_directories(${NPCAP_SDK_DIR}/Include)
+    link_directories(${NPCAP_SDK_DIR}/Lib/x64)
+else()
+    # Linux 使用 DPDK (新建这个文件!)
+    set(DRIVER_SOURCE src/xnet_app/port_dpdk.c)
+endif()
 
-# 4. 后处理与链接 (核心修改部分)
+# 4. 生成可执行文件 (注意这里用变量 DRIVER_SOURCE)
+add_executable(${PROJECT_NAME}
+        src/app.c
+        ${DRIVER_SOURCE}
+)
 
-# 添加子模块 (通用)
+# 5. 添加子模块
 add_subdirectory(src/xnet_tiny)
 add_subdirectory(src/xnet_app)
 
+# 6. 链接库
 if(WIN32)
-    # -------- Windows 链接逻辑 --------
-    # 链接 xnet 模块 + Npcap SDK + Winsock
     target_link_libraries(${PROJECT_NAME} PRIVATE
             xnet_tiny
             xnet_app
-            ${NPCAP_SDK_DIR}/Lib/x64/wpcap.lib
+            wpcap
+            Packet
             Ws2_32
     )
-
-    # 执行 DLL 复制命令
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${NPCAP_RUNTIME_DLLS} $<TARGET_FILE_DIR:${PROJECT_NAME}>
-            COMMENT "Copying Npcap runtime DLLs to target directory..."
-    )
-
 else()
     # -------- Linux (Ubuntu) 链接逻辑 --------
-    # Linux 下不需要指定 SDK 路径，系统库直接能找到
-    # 链接 xnet 模块 + pcap (系统库) + pthread (线程库)
     target_link_libraries(${PROJECT_NAME} PRIVATE
-            xnet_tiny
-            xnet_app
-            pcap
+            xnet_tiny       # 协议栈核心
+            xnet_app        # <--- 【重点】这里补上了你的业务代码库！
+            -Wl,--whole-archive ${DPDK_LIBRARIES} -Wl,--no-whole-archive
             pthread
+            numa
+            dl
+            m
     )
 endif()
