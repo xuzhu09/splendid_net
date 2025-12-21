@@ -3,7 +3,7 @@
  * Linux 平台下的 DPDK 驱动适配层
  */
 #include "xnet_tiny.h"
-#include "xnet_driver.h"
+#include "../xnet_app/xnet_driver.h"
 #include <rte_eal.h>
 #include <rte_ethdev.h>
 #include <rte_mbuf.h>

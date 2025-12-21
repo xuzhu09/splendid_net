@@ -8,7 +8,7 @@
 
 #include "xnet_ethernet.h"
 #include "xnet_arp.h"
-#include "xnet_driver.h"
+#include "../xnet_port/xnet_driver.h"
 #include "xnet_ip.h"
 #include "xnet_icmp.h"
 #include "xnet_tcp.h"

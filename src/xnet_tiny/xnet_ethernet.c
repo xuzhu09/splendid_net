@@ -7,7 +7,7 @@
 
 #include <string.h>
 
-#include "xnet_driver.h"
+#include "../xnet_port/xnet_driver.h"
 
 
 #define XARP_HW_ETHER               0x1         // 以太网
