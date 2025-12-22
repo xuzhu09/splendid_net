@@ -50,10 +50,3 @@ xnet_status_t xnet_driver_read(xnet_packet_t** packet) {
 
     return XNET_ERR_IO; // 没数据，或者出错
 }
-
-// 这一段是系统时间相关的，和驱动无关，保留在这里即可
-const xnet_time_t xsys_get_time(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec;
-}

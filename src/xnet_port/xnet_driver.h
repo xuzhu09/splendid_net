@@ -55,13 +55,4 @@ xnet_status_t xnet_driver_send(xnet_packet_t *packet);
  */
 xnet_status_t xnet_driver_read(xnet_packet_t **packet);
 
-/**
- * @brief 获取系统时间
- *
- * 获取自系统启动或程序运行以来的时间（秒），用于处理定时任务（如 ARP 超时、TCP 重传）。
- *
- * @return xnet_time_t 当前时间戳 (秒)
- */
-const xnet_time_t xsys_get_time(void);
-
 #endif // XNET_DRIVER_H

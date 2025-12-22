@@ -40,4 +40,13 @@ void xnet_init(void);
 // 协议栈轮询
 void xnet_poll(void);
 
+/**
+ * @brief 获取系统时间
+ *
+ * 获取自系统启动或程序运行以来的时间（秒），用于处理定时任务（如 ARP 超时、TCP 重传）。
+ *
+ * @return xnet_time_t 当前时间戳 (秒)
+ */
+const xnet_time_t xsys_get_time(void);
+
 #endif // XNET_TINY_H

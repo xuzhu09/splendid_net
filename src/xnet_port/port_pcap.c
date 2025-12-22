@@ -76,15 +76,3 @@ xnet_status_t xnet_driver_read(xnet_packet_t** packet) {
     return XNET_ERR_IO;
 }
 
-/**
- * 获取自程序启动以来，过去了多长时间
- * 使用墙钟时间，而不是CPU时间
- * 原代码使用 clock()。在 Windows 上它近似于“墙钟时间”，但在 Linux 上它严格遵循 POSIX 标准返回 CPU 时间
- * @return 程序的系统时间
- */
-const xnet_time_t xsys_get_time(void) {
-    struct timespec ts;
-    // CLOCK_MONOTONIC 保证时间单调递增，不受修改系统时间影响
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec;
-}
