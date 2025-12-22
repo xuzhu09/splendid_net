@@ -5,7 +5,7 @@
 #ifndef XNET_UDP_H
 #define XNET_UDP_H
 
-#include "xnet_tiny.h"
+#include "xnet_def.h"
 
 #define XUDP_MAX_SOCKET_COUNT 10
 

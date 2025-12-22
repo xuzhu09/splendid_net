@@ -5,7 +5,7 @@
 #ifndef XNET_TCP_H
 #define XNET_TCP_H
 
-#include "xnet_tiny.h"
+#include "xnet_def.h"
 
 // 1. TCP PCB 最大数量
 #define XTCP_PCB_MAX_NUM   40

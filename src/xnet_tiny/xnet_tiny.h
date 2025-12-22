@@ -6,8 +6,7 @@
 #ifndef XNET_TINY_H
 #define XNET_TINY_H
 
-#include "xnet_def.h" // <--- 引用公共定义
-#include <stdlib.h>   // for rand
+#include "xnet_def.h"
 
 // TCP 序列号生成宏 (属于逻辑部分，留在这里)
 #define tcp_get_init_seq() ((rand() << 16) + rand())
@@ -15,9 +14,7 @@
 // 全局唯一的本机 IP 地址
 extern const xip_addr_t xnet_local_ip;
 
-// ==========================================
 // 1. 内存管理与包操作 (Buffer Management)
-// ==========================================
 
 // 分配一个发送包 (从后往前分配)
 xnet_packet_t* xnet_alloc_tx_packet(uint16_t size);
@@ -30,9 +27,7 @@ void add_header(xnet_packet_t* packet, uint16_t header_size);
 void remove_header(xnet_packet_t* packet, uint16_t header_size);
 void truncate_packet(xnet_packet_t* packet, uint16_t size);
 
-// ==========================================
 // 2. 协议栈生命周期 (Lifecycle)
-// ==========================================
 
 // 协议栈初始化
 void xnet_init(void);

@@ -5,17 +5,13 @@
 #include "xnet_tiny.h"
 
 #include <stdlib.h>
-
-// 这里需要引用各个协议模块的头文件 (假设你有这些文件)
 #include <time.h>
-
 #include "xnet_ethernet.h"
 #include "xnet_arp.h"
 #include "xnet_ip.h"
 #include "xnet_icmp.h"
 #include "xnet_tcp.h"
 #include "xnet_udp.h"
-#include "xnet_driver.h" // 引用驱动接口以便获取时间
 
 // 接收与发送缓冲区 (整个协议栈的核心静态资源)
 static xnet_packet_t tx_packet, rx_packet;
@@ -76,7 +72,6 @@ void xnet_init(void) {
     xicmp_init();
     xudp_init();
     xtcp_init();
-    // 使用驱动层提供的获取时间接口来初始化随机数种子
     srand(xsys_get_time());
 }
 

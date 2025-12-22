@@ -7,11 +7,8 @@
 #define XNET_DEF_H
 
 #include <stdint.h>
-#include <string.h> // for memcmp
 
-// ==========================================
 // 1. 基础配置与宏工具
-// ==========================================
 #define XNET_CFG_PACKET_MAX_SIZE        1514        // 收发数据包的最大大小 1500+6+6+2
 #define XNET_IPV4_ADDR_SIZE             4           // IP地址长度
 #define XNET_MAC_ADDR_SIZE              6           // MAC地址长度
@@ -39,9 +36,7 @@
     #define XNET_CFG_DEFAULT_IP  {192, 168, 56, 200}
 #endif
 
-// ==========================================
 // 2. 核心枚举与类型
-// ==========================================
 
 // 错误码枚举
 typedef enum _xnet_status_t {
@@ -70,9 +65,7 @@ typedef struct _xip_addr_t {
     uint8_t addr[XNET_IPV4_ADDR_SIZE]; // 以字节形式存储的ip
 } xip_addr_t;
 
-// ==========================================
 // 3. 核心数据包结构 (最重要的结构体)
-// ==========================================
 // 网络数据包，大端，所见即所得
 typedef struct _xnet_packet_t {
     uint16_t length;                                // 包中有效数据大小

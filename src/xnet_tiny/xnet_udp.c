@@ -3,8 +3,8 @@
 //
 
 #include "xnet_udp.h"
-#include "xnet_ip.h"
 
+#include "xnet_ip.h"
 #include <string.h>
 
 static xudp_socket_t udp_socket_pool[XUDP_MAX_SOCKET_COUNT];

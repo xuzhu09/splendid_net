@@ -4,10 +4,8 @@
 
 #include "xnet_tcp.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "xnet_ethernet.h"
 #include "xnet_ip.h"
 

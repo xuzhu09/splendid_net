@@ -6,7 +6,7 @@
 #define XNET_ICMP_H
 
 #include "xnet_ip.h"
-#include "xnet_tiny.h"
+#include "xnet_def.h"
 
 #pragma pack(1) // 必须强制 1 字节对齐，防止编译器乱填空隙
 typedef struct _xicmp_hdr_t {

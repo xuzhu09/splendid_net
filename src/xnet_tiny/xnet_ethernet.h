@@ -5,7 +5,7 @@
 #ifndef XNET_ETHERNET_H
 #define XNET_ETHERNET_H
 
-#include "xnet_tiny.h"
+#include "xnet_def.h"
 
 // 关闭填充字节
 #pragma pack(1)
