@@ -6,7 +6,7 @@
 #define XNET_DRIVER_H
 
 #include <stdint.h>
-#include "xnet_tiny.h"
+#include "xnet_def.h"
 
 // ============================================================================
 // 驱动层统一接口契约

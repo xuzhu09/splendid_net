@@ -3,7 +3,7 @@
 //
 #include "xnet_arp.h"
 #include "string.h"
-#include "../xnet_port/xnet_driver.h"
+#include "xnet_driver.h"
 #include "xnet_ethernet.h"
 
 #define XARP_ENTRY_FREE		            0                   // 空闲
