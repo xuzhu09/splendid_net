@@ -97,6 +97,12 @@ void xip_in(xnet_packet_t* packet) {
     }
     ip_hdr->hdr_checksum = pre_checksum; //恢复校验和
 
+    // 无论是 TCP、UDP 还是 ICMP，都以 IP 头部的 total_len 为准
+    // 如果驱动给的数据比 total_len 长（说明有以太网Padding），直接切掉
+    if (packet->len > ip_total_len) {
+        truncate_packet(packet, ip_total_len);
+    }
+
     // 只处理目标IP为自己的数据包，其它广播之类的IP全部丢掉
     if (!xip_addr_eq(xnet_local_ip.addr, ip_hdr->dest_ip)) {
         return;
@@ -118,8 +124,6 @@ void xip_in(xnet_packet_t* packet) {
             }
             break;
         case XNET_PROTOCOL_TCP:
-            // 无负载的TCP包，有效数据只有54，驱动会在末尾填充到60，所以将packet->length截断成54
-            truncate_packet(packet, ip_total_len);
             remove_header(packet, ip_hdr_len);
             xtcp_in(&src_ip, packet);
             break;
@@ -145,7 +149,7 @@ static xnet_status_t resolve_and_send(xip_addr_t* dest_ip, xnet_packet_t* packet
     xnet_status_t status;
     uint8_t* mac_addr;
 
-    if ((status = xarp_resolve(dest_ip, &mac_addr) == XNET_OK)) {
+    if ((status = xarp_resolve(dest_ip, &mac_addr)) == XNET_OK) {
         return ethernet_out_to(XNET_PROTOCOL_IP, mac_addr, packet);
     }
     return status;

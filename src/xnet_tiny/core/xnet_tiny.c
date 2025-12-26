@@ -38,8 +38,8 @@ void remove_header(xnet_packet_t* packet, uint16_t header_size) {
 /**
  * 将包的长度截断为size大小
  */
-void truncate_packet(xnet_packet_t* packet, uint16_t size) {
-    packet->len = min(packet->len, size);
+void truncate_packet(xnet_packet_t* packet, uint16_t new_len) {
+    packet->len = min(packet->len, new_len);
 }
 
 /**

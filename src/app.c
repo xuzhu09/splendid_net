@@ -13,7 +13,7 @@ int main (void) {
     xserver_http_create(80);
 
     // 打印 IP 和 MAC 地址
-    printf("xnet running at %d.%d.%d.%d, MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+    printf("------------xnet running at %d.%d.%d.%d, MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
        xnet_local_ip.addr[0], xnet_local_ip.addr[1],
        xnet_local_ip.addr[2], xnet_local_ip.addr[3],
        xnet_local_mac[0], xnet_local_mac[1], xnet_local_mac[2],

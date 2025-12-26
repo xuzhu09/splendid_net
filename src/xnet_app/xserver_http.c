@@ -51,25 +51,64 @@ static xnet_status_t http_handler(xtcp_pcb_t* pcb, xtcp_event_t event) {
 
     switch (event) {
         case XTCP_EVENT_CONNECTED:
+            printf("http: new client connected from %d.%d.%d.%d:%d\n",
+               pcb->remote_ip.addr[0],
+               pcb->remote_ip.addr[1],
+               pcb->remote_ip.addr[2],
+               pcb->remote_ip.addr[3],
+               pcb->remote_port);
+            /*
             printf("http: client connected. Start sending %d bytes...\n", TEST_DATA_LEN);
             sent_len = 0; // 【重置进度】非常重要！
 
             // 连接刚建立，缓冲区肯定是空的，立刻尝试发第一波
             try_send_data(pcb);
+            */
+
+            // xtcp_pcb_close(pcb);
             break;
 
         case XTCP_EVENT_SENT:
             // 【核心】：收到这个事件，说明对方回 ACK 了，缓冲区有空位了
             // 赶紧接着发剩下的！
-            try_send_data(pcb);
+            // try_send_data(pcb);
             break;
 
         case XTCP_EVENT_DATA_RECEIVED:
-            // 暂时不管接收
+            uint8_t echo_buf[1024]; // 还是用安全的 1024 栈内存
+            int recv_len;
+
+            do {
+                // 1. 尝试读一桶
+                recv_len = xtcp_recv(pcb, echo_buf, sizeof(echo_buf));
+
+                // 2. 如果读到了数据，就处理（Echo）
+                if (recv_len > 0) {
+                    printf(">> [Recv] Chunk size: %d bytes\n", recv_len);
+
+                    // 尝试回显
+                    int written = xtcp_send(pcb, echo_buf, recv_len);
+
+                    if (written < recv_len) {
+                        // 注意：如果发送缓冲区满了，这里简单的 Echo 测试会丢弃剩余数据
+                        // 在生产环境中，需要把剩下的存起来下次发，但测试环境这样是可以的
+                        printf(">> [Warn] TX full, dropped %d bytes\n", recv_len - written);
+                    }
+                }
+
+                // 3. 【判断条件】只要读出来的长度等于缓冲区最大值，说明可能还有数据，继续读！
+                // 或者更简单：只要 recv_len > 0 就继续读
+            } while (recv_len > 0);
+
             break;
 
         case XTCP_EVENT_CLOSED:
-            printf("http: connection closed\n");
+            printf("http: connection closed from %d.%d.%d.%d:%d\n",
+                   pcb->remote_ip.addr[0],
+                   pcb->remote_ip.addr[1],
+                   pcb->remote_ip.addr[2],
+                   pcb->remote_ip.addr[3],
+                   pcb->remote_port);
             break;
 
         default:

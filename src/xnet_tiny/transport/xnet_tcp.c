@@ -4,6 +4,7 @@
 
 #include "xnet_tcp.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "xnet_ethernet.h"
@@ -269,9 +270,9 @@ static void xtcp_pcb_init(xtcp_pcb_t* pcb) {
     pcb->remote_win = XTCP_WIN_DEFAULT;
     pcb->remote_mss = XTCP_MSS_DEFAULT;
 
-    // 序列号随机化
-    pcb->snd_nxt = tcp_get_init_seq(); // 当前流水号
-    pcb->snd_una = pcb->snd_nxt; // 初始时，未确认的就是当前的
+    // 初始序列号，是一个随机的32位数
+    pcb->snd_nxt = tcp_get_init_seq();
+    pcb->snd_una = pcb->snd_nxt;
 
     // 缓冲区初始化
     tcp_buf_init(&pcb->tx_buf);
@@ -292,16 +293,19 @@ static void tcp_process_accept(xtcp_pcb_t* listen_pcb, xip_addr_t* remote_ip, xt
         return;
     }
 
+    // 这里不能使用new pcb，因为有太多个性化配置
     xtcp_pcb_t* child_pcb = xtcp_pcb_zalloc();
     if (!child_pcb) return;
 
-    child_pcb->state = XTCP_STATE_SYN_RECVD;
+    child_pcb->state = XTCP_STATE_SYN_RECVD; // 直接空降到SYN_RECVD状态
     child_pcb->event_cb = listen_pcb->event_cb; // 继承listen_pcb的回调，应用层传入http_handler
     child_pcb->local_port = listen_pcb->local_port; // 继承listen_pcb的端口，应用层传入80
     child_pcb->remote_ip = *remote_ip; // IP层传入
     child_pcb->remote_port = tcp_hdr->src_port;
     child_pcb->remote_win = tcp_hdr->window;
     child_pcb->rcv_nxt = tcp_hdr->seq + 1; // SYN占用一个字节
+    child_pcb->snd_nxt = tcp_get_init_seq(); // 生成随机序列号 (否则默认是0)
+    child_pcb->snd_una = child_pcb->snd_nxt;
 
     // 解析选项中的MSS
     tcp_read_mss(child_pcb, tcp_hdr);
@@ -357,14 +361,25 @@ void xtcp_in(xip_addr_t* remote_ip, xnet_packet_t* packet) {
         return;
     }
 
+    // 校验序列号
     if (tcp_hdr->seq != pcb->rcv_nxt) {
-        tcp_send_reset(tcp_hdr->seq + 1, tcp_hdr->dest_port, remote_ip, tcp_hdr->src_port);
+        // 场景：对方发了 1, 2。我先收到了 2。
+        // 正确做法：丢弃包 2（因为我处理不了乱序），
+        // 并且发一个 ACK 告诉对方："我还在等 1 呢 (rcv_nxt)"。
+        // 对方收到这个重复 ACK 后，就会意识到丢包了，会触发快速重传。
+        // 只有当连接已经建立后，才发 ACK 纠正对方；否则发 RST
+        if (pcb->state == XTCP_STATE_ESTABLISHED) {
+            tcp_send_segment(pcb, XTCP_FLAG_ACK);
+        } else {
+            tcp_send_reset(tcp_hdr->seq + 1, tcp_hdr->dest_port, remote_ip, tcp_hdr->src_port);
+        }
         return;
     }
 
     // 这里可能是第三次握手，也可能是连接已建立后的正常通信，此时tcp_hdr可能包含option数据，所以不能使用sizeof(xtcp_hdr_t)
     remove_header(packet, tcp_hdr->hdr_flags.hdr_len * 4);
     uint16_t flags = tcp_hdr->hdr_flags.flags;
+    uint16_t payload_len = packet->len; // 剥离头后，这就是数据长度
     switch (pcb->state) {
         case XTCP_STATE_SYN_RECVD:
             // 作为服务端，收到收到第三次握手
@@ -400,17 +415,45 @@ void xtcp_in(xip_addr_t* remote_ip, xnet_packet_t* packet) {
                 }
             }
 
-            uint16_t read_len = tcp_recv(pcb, (uint8_t)tcp_hdr->hdr_flags.flags, packet->data, packet->len);
+            // 定义一个标志位：是否需要回复 ACK
+            int need_ack = 0;
 
-            // 作为服务端，收到第一次挥手
+            // 显式处理接收到的数据
+            if (payload_len > 0) {
+                // 1. 直接调用 buffer 的 put 方法 (语义清晰：放入接收缓冲)
+                int written = tcp_buf_put(&pcb->rx_buf, packet->data, payload_len);
+
+                // 2. 更新接收进度 (只加数据的长度)
+                pcb->rcv_nxt += written;
+
+                // 3. 通知应用层有数据到了
+                if (pcb->event_cb) {
+                    pcb->event_cb(pcb, XTCP_EVENT_DATA_RECEIVED);
+                }
+
+                // 收到了新数据，必须回复 ACK
+                need_ack = 1;
+            }
+
+            // 作为服务端，收到第一次挥手FIN
             if ((flags & XTCP_FLAG_FIN)) {
-                pcb->state = XTCP_STATE_LAST_ACK;
-                pcb->rcv_nxt++;
-                tcp_send_segment(pcb, XTCP_FLAG_FIN | XTCP_FLAG_ACK);
-            }else if (read_len) {
+                pcb->state = XTCP_STATE_CLOSE_WAIT; // 注意：服务端收到FIN通常进入CLOSE_WAIT
+                pcb->rcv_nxt++; // FIN 占用一个序列号
+                // 收到 FIN，必须回复 ACK
+                need_ack = 1;
+                // 通知应用层对方断开了 (通常应用层需要在此时调用 close)
+                if (pcb->event_cb) {
+                    pcb->event_cb(pcb, XTCP_EVENT_CLOSED);
+                }
+            }
+            // 4. 统一发送 ACK / 数据
+            if (need_ack) {
+                // 必须回 ACK (可能带有 FIN 的 ACK，或者数据的 ACK)
+                // 如果刚好自己也有数据要发，tcp_send_segment 会自动带上 payload (捎带应答)
                 tcp_send_segment(pcb, XTCP_FLAG_ACK);
-                pcb->event_cb(pcb, XTCP_EVENT_DATA_RECEIVED);
-            }else if (tcp_buf_wait_send_count(&pcb->tx_buf)) { // 捎带发送
+            }else if (tcp_buf_wait_send_count(&pcb->tx_buf)) {
+                // 虽然没收到新数据不需要立即 ACK，但我自己有数据要发
+                // 这种情况下也要发包 (ACK 标志也是必须带的)
                 tcp_send_segment(pcb, XTCP_FLAG_ACK);
             }
             break;
@@ -539,7 +582,19 @@ int xtcp_send(xtcp_pcb_t* pcb, uint8_t* src, uint16_t len) {
 
 // 使用tcp接收数据
 int xtcp_recv(xtcp_pcb_t* pcb, uint8_t* dest, uint16_t len) {
-    return tcp_buf_pull(&pcb->rx_buf, dest, len);
+    int read_len = tcp_buf_pull(&pcb->rx_buf, dest, len);
+
+    // 【新增逻辑】窗口更新机制
+    if (read_len > 0) {
+        // 如果当前缓冲区比较空（比如空闲空间 > MSS），就告诉对方
+        // 这里简单处理：只要读走数据，就尝试发个 ACK 更新窗口
+        if (pcb->state == XTCP_STATE_ESTABLISHED) {
+            // 这里的 flags 仅传 ACK，tcp_send_segment 会自动把最新的 rx_buf 剩余空间填入 header->window
+            tcp_send_segment(pcb, XTCP_FLAG_ACK);
+        }
+    }
+
+    return read_len;
 }
 
 // 服务端主动关闭连接

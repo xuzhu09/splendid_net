@@ -26,7 +26,7 @@ xnet_packet_t* xnet_alloc_rx_packet(uint16_t size);
 // 头部操作工具
 void add_header(xnet_packet_t* packet, uint16_t header_size);
 void remove_header(xnet_packet_t* packet, uint16_t header_size);
-void truncate_packet(xnet_packet_t* packet, uint16_t size);
+void truncate_packet(xnet_packet_t* packet, uint16_t new_len);
 
 // 2. 协议栈生命周期 (Lifecycle)
 
