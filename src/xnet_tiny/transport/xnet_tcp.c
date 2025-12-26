@@ -85,7 +85,7 @@ static void tcp_buf_read_for_send(xtcp_buf_t* tcp_buf, uint8_t* dest, uint16_t l
 }
 
 // 将数据写入到tcp
-static uint16_t tcp_buf_write(xtcp_buf_t* tcp_buf, uint8_t* src, uint16_t len) {
+static uint16_t tcp_buf_append(xtcp_buf_t* tcp_buf, uint8_t* src, uint16_t len) {
     // 待写入数据与剩余空间，取最小值
     int write_len = min(len, tcp_buf_free_count(tcp_buf));
 
@@ -102,7 +102,7 @@ static uint16_t tcp_buf_write(xtcp_buf_t* tcp_buf, uint8_t* src, uint16_t len) {
 
 static uint16_t tcp_recv(xtcp_pcb_t* pcb, uint8_t flags, uint8_t* src, uint16_t len) {
     // 1. 将收到的 payload 写入接收缓冲区 (rx_buf)
-    uint16_t read_len = tcp_buf_write(&pcb->rx_buf, src, len);
+    uint16_t read_len = tcp_buf_append(&pcb->rx_buf, src, len);
 
     // 2. 累加 ACK 号，准备下次告诉对方我收到了多少
     pcb->rcv_nxt += read_len;
@@ -530,7 +530,7 @@ int xtcp_write(xtcp_pcb_t* pcb, uint8_t* src, uint16_t len) {
         return -1;
     }
     // 将数据拷贝到pcb->tx_buf，移动front
-    int written = tcp_buf_write(&pcb->tx_buf, src, len);
+    int written = tcp_buf_append(&pcb->tx_buf, src, len);
     if (written) {
         tcp_send_segment(pcb, XTCP_FLAG_ACK); // 只要连接建立，每一次发送都要带ACK
     }

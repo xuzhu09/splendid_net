@@ -3,36 +3,36 @@
 #include "xnet_tcp.h"
 
 // 准备 4096 字节的数据 (故意比 2048 缓冲区大)
-#define TOTAL_SEND_SIZE 4096
-static uint8_t tx_buffer[TOTAL_SEND_SIZE];
+#define TEST_DATA_LEN 4096
+static uint8_t tx_buffer[TEST_DATA_LEN];
 
 // 记录发送进度的变量
-static int sent_offset = 0;
+static int sent_len = 0;
 
 // 尝试发送数据
 static void try_send_data(xtcp_pcb_t* pcb) {
     // 算出还剩多少没发
-    int remaining = TOTAL_SEND_SIZE - sent_offset;
-    
-    if (remaining <= 0) {
+    int remaining_len = TEST_DATA_LEN - sent_len;
+
+    if (remaining_len <= 0) {
         return; // 发完了
     }
 
     // 将剩余的数据写入 TCP 缓冲区
-    int written = xtcp_write(pcb, tx_buffer + sent_offset, remaining);
+    int written = xtcp_write(pcb, tx_buffer + sent_len, remaining_len);
 
     // 更新进度条
     if (written > 0) {
-        sent_offset += written;
-        printf(">> Progress: Sent %d bytes, Total: %d / %d\n", written, sent_offset, TOTAL_SEND_SIZE);
+        sent_len += written;
+        printf(">> Progress: Sent %d bytes, Total: %d / %d\n", written, sent_len, TEST_DATA_LEN);
     } else {
         printf(">> Buffer full! Waiting for XTCP_EVENT_SENT...\n");
     }
 
     // 如果全部发完，可以考虑关闭连接（可选）
-    if (sent_offset >= TOTAL_SEND_SIZE) {
+    if (sent_len >= TEST_DATA_LEN) {
         printf(">> All data sent successfully!\n");
-        // xtcp_pcb_close(pcb); 
+        // xtcp_pcb_close(pcb);
     }
 }
 
@@ -43,7 +43,7 @@ static xnet_status_t http_handler(xtcp_pcb_t* pcb, xtcp_event_t event) {
     // 只初始化一次数据
     static int data_inited = 0;
     if (!data_inited) {
-        for (int i = 0; i < TOTAL_SEND_SIZE; i++) {
+        for (int i = 0; i < TEST_DATA_LEN; i++) {
             tx_buffer[i] = num[i % 16];
         }
         data_inited = 1;
@@ -51,9 +51,9 @@ static xnet_status_t http_handler(xtcp_pcb_t* pcb, xtcp_event_t event) {
 
     switch (event) {
         case XTCP_EVENT_CONNECTED:
-            printf("http: client connected. Start sending %d bytes...\n", TOTAL_SEND_SIZE);
-            sent_offset = 0; // 【重置进度】非常重要！
-            
+            printf("http: client connected. Start sending %d bytes...\n", TEST_DATA_LEN);
+            sent_len = 0; // 【重置进度】非常重要！
+
             // 连接刚建立，缓冲区肯定是空的，立刻尝试发第一波
             try_send_data(pcb);
             break;
