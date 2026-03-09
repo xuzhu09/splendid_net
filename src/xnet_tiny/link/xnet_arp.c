@@ -82,26 +82,6 @@ void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr) {
 }
 
 /**
- * 检查是否超时
- * @param last_time 前一时间
- * @param gap_time 预期超时时间，值为0时，表示获取当前时间
- * @return 0 - 未超时，1-超时
- */
-int xnet_check_tmo(xnet_time_t *last_time, uint32_t gap_time) {
-    xnet_time_t curr_time = xsys_get_time();
-    if (gap_time == 0) {         // sec == 0 ,将 *time 设置成当前时间
-        *last_time = curr_time;
-        return 0;
-    }
-
-    if (curr_time - *last_time >= gap_time) {   // sec != 0，检查超时
-        *last_time = curr_time;
-        return 1;
-    }
-    return 0;
-}
-
-/**
  * 解析指定的IP地址，如果不在ARP表项中，则发送ARP请求
  * @param ipaddr 查找的ip地址
  * @param mac_addr 返回的mac地址存储区

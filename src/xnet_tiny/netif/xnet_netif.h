@@ -24,7 +24,7 @@
  * - XNET_OK: 初始化成功
  * - 其他值: 初始化失败（通常会导致程序退出）
  */
-xnet_status_t xnet_driver_open(uint8_t *mac_addr);
+xnet_status_t xnet_netif_open(uint8_t *mac_addr);
 
 /**
  * @brief 发送数据包
@@ -39,7 +39,7 @@ xnet_status_t xnet_driver_open(uint8_t *mac_addr);
  * - XNET_OK: 发送成功
  * - XNET_ERR_IO: 发送失败 (如链路忙、队列满等)
  */
-xnet_status_t xnet_driver_send(xnet_packet_t *packet);
+xnet_status_t xnet_netif_send(xnet_packet_t *packet);
 
 /**
  * @brief 读取数据包 (轮询模式)
@@ -53,6 +53,6 @@ xnet_status_t xnet_driver_send(xnet_packet_t *packet);
  * - XNET_OK: 成功读取到一个数据包
  * - XNET_ERR_IO: 当前没有数据包 (这不是错误，只是表示没收到数据)
  */
-xnet_status_t xnet_driver_read(xnet_packet_t **packet);
+xnet_status_t xnet_netif_read(xnet_packet_t **packet);
 
 #endif // XNET_DRIVER_H

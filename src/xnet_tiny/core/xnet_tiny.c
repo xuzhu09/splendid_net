@@ -81,3 +81,19 @@ void xnet_poll(void) {
     ethernet_poll();
     xarp_poll();
 }
+
+// 全局通用的超时检测工具
+int xnet_check_tmo(xnet_time_t *last_time, uint32_t gap_time) {
+    xnet_time_t curr_time = xsys_get_time(); // 调用底层提供的契约函数
+
+    if (gap_time == 0) {
+        *last_time = curr_time;
+        return 0;
+    }
+
+    if (curr_time - *last_time >= gap_time) {
+        *last_time = curr_time;
+        return 1;
+    }
+    return 0;
+}

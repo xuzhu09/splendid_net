@@ -35,7 +35,7 @@ xnet_status_t ethernet_out_to(xnet_protocol_t protocol, const uint8_t *target_ma
     ether_hdr->protocol = swap_order16(protocol);
 
     // 数据发送
-    return xnet_driver_send(packet);
+    return xnet_netif_send(packet);
 }
 
 /**
@@ -68,7 +68,7 @@ xnet_status_t xarp_make_request(const xip_addr_t *target_ipaddr) {
  * @return 初始化结果
  */
 xnet_status_t ethernet_init(void) {
-    xnet_status_t status = xnet_driver_open(xnet_local_mac);
+    xnet_status_t status = xnet_netif_open(xnet_local_mac);
     if (status < 0) return status;
     // 全网广播自己的 mac 地址，target ip设置自己
     return xarp_make_request(&xnet_local_ip);
@@ -180,7 +180,7 @@ void ethernet_in(xnet_packet_t *packet) {
 void ethernet_poll(void) {
     xnet_packet_t *packet;
     // 此处使用二级指针，给packet赋值
-    if (xnet_driver_read(&packet) == XNET_OK) {
+    if (xnet_netif_read(&packet) == XNET_OK) {
         // 只要轮询到了数据，就会进入这里
         // 正常情况下，在此打个断点，全速运行
         // 然后在对方端ping 192.168.254.2，会停在这里

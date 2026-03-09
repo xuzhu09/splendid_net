@@ -32,7 +32,7 @@ const char default_mac_addr[] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
  * 初始化网络驱动
  * @return 0成功，其它失败
  */
-xnet_status_t xnet_driver_open(uint8_t* mac_addr) {
+xnet_status_t xnet_netif_open(uint8_t* mac_addr) {
     printf(">> [System Info] Initializing Driver: Windows Pcap\n");
     memcpy(mac_addr, default_mac_addr, sizeof(default_mac_addr));
     pcap = pcap_device_open(ip_str, mac_addr, 1);
@@ -48,7 +48,7 @@ xnet_status_t xnet_driver_open(uint8_t* mac_addr) {
  * @param size 数据长度
  * @return 0 - 成功，其它失败
  */
-xnet_status_t xnet_driver_send(xnet_packet_t* packet) {
+xnet_status_t xnet_netif_send(xnet_packet_t* packet) {
     return pcap_device_send(pcap, packet->data, packet->len);
 }
 
@@ -58,7 +58,7 @@ xnet_status_t xnet_driver_send(xnet_packet_t* packet) {
  * @param size 数据长度
  * @return 0 - 成功，其它失败
  */
-xnet_status_t xnet_driver_read(xnet_packet_t** packet) {
+xnet_status_t xnet_netif_read(xnet_packet_t** packet) {
     uint16_t size;
     xnet_packet_t* r_packet = xnet_alloc_rx_packet(XNET_CFG_PACKET_MAX_SIZE);
 

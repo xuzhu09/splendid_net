@@ -43,6 +43,14 @@ void xnet_poll(void);
  *
  * @return xnet_time_t 当前时间戳 (秒)
  */
-const xnet_time_t xsys_get_time(void);
+xnet_time_t xsys_get_time(void);
+
+/**
+ * @brief 检查是否超时 (协议栈全局通用)
+ * @param last_time 记录上次时间的变量指针
+ * @param gap_time 预期超时时间。传 0 表示仅刷新 last_time 为当前时间
+ * @return 0 - 未超时，1 - 已超时
+ */
+int xnet_check_tmo(xnet_time_t *last_time, uint32_t gap_time);
 
 #endif // XNET_TINY_H
