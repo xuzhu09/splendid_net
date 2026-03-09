@@ -11,14 +11,6 @@
 #include "xnet_tcp.h"
 #include "xnet_udp.h"
 
-/**
- * 校验和计算
- * @param buf 校验数据区的起始地址
- * @param len 数据区的长度，以字节为单位
- * @param pre_sum 累加的之前的值，用于多次调用checksum对不同的的数据区计算出一个校验和
- * @param complement 是否对累加和的结果进行取反
- * @return 校验和结果
- */
 uint16_t checksum16(uint16_t *buf, uint16_t len, uint16_t pre_sum, int complement) {
     // 使用32位接收16位，因为要处理溢出
     uint32_t checksum = pre_sum;
@@ -42,7 +34,6 @@ uint16_t checksum16(uint16_t *buf, uint16_t len, uint16_t pre_sum, int complemen
     return complement ? (uint16_t)~checksum : (uint16_t)checksum;
 }
 
-// 计算带有伪头部的校验和
 uint16_t checksum_peso(const xip_addr_t *src_ip, const xip_addr_t *dest_ip, uint8_t protocol,
                       uint16_t *buf, uint16_t len) {
 
@@ -78,12 +69,12 @@ void xip_in(xnet_packet_t *packet) {
     xip_hdr_t *ip_hdr = (xip_hdr_t*) packet->data;
 
     // 进行一些必要性的检查：版本号要求
-    if (ip_hdr->version != XNET_VERSION_IPV4) {
+    if (XIP_VERSION(ip_hdr) != XNET_VERSION_IPV4) {
         return;
     }
 
     // 长度要求检查
-    uint32_t ip_hdr_len = ip_hdr->hdr_len * 4;
+    uint32_t ip_hdr_len = XIP_HDR_LEN(ip_hdr) * 4;
     uint32_t ip_total_len = swap_order16(ip_hdr->total_len);
     if ((ip_hdr_len < sizeof(xip_hdr_t)) || ((ip_total_len < ip_hdr_len) || (packet->len < ip_total_len))) {
         return;
@@ -155,21 +146,13 @@ static xnet_status_t resolve_and_send(xip_addr_t *dest_ip, xnet_packet_t *packet
     return status;
 }
 
-/**
- * 发送一个 ip 包
- * @param protocol
- * @param dest_ip
- * @param packet
- * @return
- */
 xnet_status_t xip_out(xnet_protocol_t protocol, xip_addr_t *dest_ip, xnet_packet_t *packet) {
     static uint32_t ip_packet_id = 0;
     xip_hdr_t *ip_hdr;
     // 添加ip头部
     add_header(packet, sizeof(xip_hdr_t));
     ip_hdr = (xip_hdr_t*)packet->data;
-    ip_hdr->version = XNET_VERSION_IPV4;
-    ip_hdr->hdr_len = sizeof(xip_hdr_t) / 4;
+    XIP_SET_VERSION_IHL(ip_hdr, XNET_VERSION_IPV4, sizeof(xip_hdr_t) / 4);
     ip_hdr->tos = 0; //不支持，填0
     ip_hdr->total_len = swap_order16(packet->len);
     ip_hdr->id = swap_order16(ip_packet_id);

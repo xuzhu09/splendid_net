@@ -51,7 +51,7 @@ xnet_status_t xicmp_dest_unreach(uint8_t code, xip_hdr_t *ip_hdr) {
     xicmp_hdr_t *icmp_hdr;
     xip_addr_t dest_ip;
 
-    uint16_t ip_hdr_size = ip_hdr->hdr_len * 4;
+    uint16_t ip_hdr_size = XIP_HDR_LEN(ip_hdr) * 4;
     uint16_t ip_data_size = swap_order16(ip_hdr->total_len) - ip_hdr_size;
 
     // ICMP 错误消息载荷规定：原始 IP 头部 + 原始数据的前 8 字节
