@@ -21,10 +21,22 @@ if(NOT WIN32)
 endif()
 
 # =======================================================
-# 2. 跨平台网卡驱动配置：Windows(Npcap) vs Linux(DPDK)
+# 2. 跨平台网卡驱动配置：Windows(Npcap) vs Ubuntu(DPDK) vs Debian(TAP)
 # =======================================================
-if(WIN32)
+# 如果没有在 CLion 里手动指定环境，系统自动兜底猜测
+if(NOT DEFINED XNET_ENV)
+    if(WIN32)
+        set(XNET_ENV "windows")
+    else()
+        set(XNET_ENV "debian") # Linux 下默认走安全的 TAP 环境
+    endif()
+endif()
+
+message(STATUS "========== 🚀 XNET TARGET ENV: ${XNET_ENV} ==========")
+
+if(XNET_ENV STREQUAL "windows")
     # --- Windows Npcap 配置 ---
+    set(ENV_LOCAL_IP "192, 168, 254, 2")
     set(NPCAP_SDK_DIR "C:/Users/efair/Downloads/npcap-sdk-1.15")
 
     add_library(Npcap::SDK UNKNOWN IMPORTED)
@@ -33,8 +45,14 @@ if(WIN32)
             IMPORTED_LOCATION "${NPCAP_SDK_DIR}/Lib/x64/wpcap.lib"
             INTERFACE_LINK_LIBRARIES "${NPCAP_SDK_DIR}/Lib/x64/Packet.lib;Ws2_32"
     )
-else()
+
+    set(DRIVER_TARGET Npcap::SDK)
+    set(DRIVER_SUBDIR "src/drivers/pcap")
+
+elseif(XNET_ENV STREQUAL "ubuntu")
     # --- Linux DPDK 配置 ---
+    set(ENV_LOCAL_IP "192, 168, 56, 200")
+
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(DPDK REQUIRED libdpdk)
 
@@ -48,17 +66,29 @@ else()
             pthread numa dl m
     )
     add_compile_definitions(ALLOW_EXPERIMENTAL_API)
+
+    set(DRIVER_TARGET DPDK::SDK)
+    set(DRIVER_SUBDIR "src/drivers/dpdk")
+
+elseif(XNET_ENV STREQUAL "debian")
+    # --- Linux TAP 配置 ---
+    set(ENV_LOCAL_IP "192, 168, 56, 201")
+
+    # TAP 驱动不需要外挂第三方库，直接使用 Linux 内核 API
+    set(DRIVER_TARGET "")
+    set(DRIVER_SUBDIR "src/drivers/tap")
+
+else()
+    message(FATAL_ERROR "不支持的环境变量 XNET_ENV=${XNET_ENV}，请使用 windows, ubuntu 或 debian")
 endif()
+
+# 🌟 全局注入本地 IP 宏，代码里直接用 XNET_CFG_LOCAL_IP 读取
+add_compile_definitions(XNET_CFG_LOCAL_IP=${ENV_LOCAL_IP})
 
 # =======================================================
 # 3. 注册协议栈核心模块
 # =======================================================
-if(WIN32)
-    add_subdirectory(src/drivers/pcap)
-else()
-    add_subdirectory(src/drivers/dpdk)
-endif()
-
+add_subdirectory(${DRIVER_SUBDIR}) # 根据环境动态加载对应的底层驱动目录
 add_subdirectory(src/xnet_tiny)
 add_subdirectory(src/xnet_socket)
 add_subdirectory(src/xnet_app)
@@ -67,13 +97,8 @@ add_subdirectory(src/xnet_app)
 # 🌟 4. 核心魔法：为 JNA 专用的动态库注入灵魂 (.so / .dll)
 # =======================================================
 if(TARGET xnet_socket)
-    if(WIN32)
-        # Windows下：把 Npcap 驱动和核心协议栈绑进 DLL
-        target_link_libraries(xnet_socket PRIVATE xnet_tiny xnet_netif Npcap::SDK)
-    else()
-        # Linux下：把 DPDK 驱动和核心协议栈绑进 SO
-        target_link_libraries(xnet_socket PRIVATE xnet_tiny xnet_netif DPDK::SDK)
-    endif()
+    # 统一绑定：自动把当前环境需要的第三方库揉进去
+    target_link_libraries(xnet_socket PRIVATE xnet_tiny xnet_netif ${DRIVER_TARGET})
 endif()
 
 # =======================================================
@@ -91,12 +116,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/xnet_app
 )
 
-if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-            xnet_app xnet_tiny xnet_netif Npcap::SDK
-    )
-else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-            xnet_app xnet_tiny xnet_netif DPDK::SDK
-    )
-endif()
+# 统一绑定：无需再写 if/else，自动链接对应环境的驱动库
+target_link_libraries(${PROJECT_NAME} PRIVATE
+        xnet_app xnet_tiny xnet_netif ${DRIVER_TARGET}
+)

@@ -1,34 +1,29 @@
-# src/xnet_port/CMakeLists.txt
-
-# 1. 准备源文件列表 (先不创建库)
 set(PORT_SRCS "")
 
-if(WIN32)
-    # Windows: 使用 Pcap 驱动
-    list(APPEND PORT_SRCS netif_pcap.c
-    )
-else()
-    # Linux: 使用 DPDK
+# -------------------------------------------------------
+# 根据全局环境变量，精准选择适配层文件和底层驱动库
+# -------------------------------------------------------
+if(XNET_ENV STREQUAL "windows")
+    list(APPEND PORT_SRCS netif_pcap.c)
+    set(DRIVER_LIB driver_pcap)
+
+elseif(XNET_ENV STREQUAL "ubuntu")
     list(APPEND PORT_SRCS netif_dpdk.c)
+    set(DRIVER_LIB driver_dpdk)
+
+elseif(XNET_ENV STREQUAL "debian")
+    list(APPEND PORT_SRCS netif_tap.c)
+    set(DRIVER_LIB driver_tap)
 endif()
 
-# 2. 必须先创建目标
+# 1. 编译为静态库
 add_library(xnet_netif STATIC ${PORT_SRCS})
 
-# 3. 统一设置通用头文件路径
+# 2. 设置头文件路径
 target_include_directories(xnet_netif
-        PUBLIC
-        .
-        PRIVATE
-        ../core
+        PUBLIC .
+        PRIVATE ../core
 )
 
-
-# 4. 根据平台补充特定的配置
-if(WIN32)
-    # 直接链接 driver_pcap 库
-    target_link_libraries(xnet_netif PRIVATE driver_pcap)
-else()
-    # 链接 DPDK 驱动库
-    target_link_libraries(xnet_netif PRIVATE driver_dpdk)
-endif()
+# 3. 链接对应的底层网卡驱动
+target_link_libraries(xnet_netif PRIVATE ${DRIVER_LIB})
