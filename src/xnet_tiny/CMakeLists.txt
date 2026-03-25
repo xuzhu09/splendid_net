@@ -16,6 +16,9 @@ set(TINY_SRCS
         # 传输层
         transport/xnet_udp.c
         transport/xnet_tcp.c
+
+        # 基础设施层
+        app/xnet_dhcp.c
 )
 
 # 2. 创建静态库 (推荐做成静态库)

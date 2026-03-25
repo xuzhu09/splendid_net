@@ -21,7 +21,10 @@ static xnet_packet_t tx_packet, rx_packet;
 #endif
 
 // 协议栈的IP地址
-const xip_addr_t xnet_local_ip = {{XNET_CFG_LOCAL_IP}};
+xip_addr_t xnet_local_ip = {{XNET_CFG_LOCAL_IP}};
+// 新增掩码和网关 (暂时给个默认值，后续由 DHCP 覆盖)
+xip_addr_t xnet_netmask  = {{255, 255, 255, 0}};
+xip_addr_t xnet_gateway  = {{0, 0, 0, 0}};
 
 /**
  * 为发包添加一个头部

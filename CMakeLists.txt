@@ -114,6 +114,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/xnet_tiny/transport
         ${CMAKE_CURRENT_SOURCE_DIR}/src/xnet_socket
         ${CMAKE_CURRENT_SOURCE_DIR}/src/xnet_app
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/xnet_tiny/app
 )
 
 # 统一绑定：无需再写 if/else，自动链接对应环境的驱动库

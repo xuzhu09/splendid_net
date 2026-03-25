@@ -2,7 +2,8 @@
 
 #include "xnet_tiny.h"
 #include "xserver_http.h"
-#include "xserver_datetime.h" // 别忘了引入这个头文件
+#include "xserver_datetime.h"
+#include "xnet_dhcp.h"
 
 int main (void) {
     // 1. 禁用标准输出缓冲，确保 printf 能即时打印到控制台
@@ -10,6 +11,7 @@ int main (void) {
 
     // 2. 初始化协议栈核心 (内存池、ARP表等)
     xnet_init();
+    xnet_dhcp_init();
 
     printf("xnet stack initialized.\n");
 
@@ -42,6 +44,8 @@ int main (void) {
         // A. 驱动协议栈 (收包、发包、处理 TCP 状态机)
         // 这是心脏，必须高频调用
         xnet_poll();
+
+        xnet_dhcp_poll();
 
         // B. 给 HTTP 服务器分配一点 CPU 时间
         // 它会去 socket 队列看一眼：有新连接吗？有就处理，没有就立即返回
