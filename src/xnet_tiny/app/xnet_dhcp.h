@@ -33,6 +33,7 @@ typedef enum _xnet_dhcp_state_t {
     DHCP_STATE_DISABLED = 0, // 禁用 DHCP (使用静态 IP)
     DHCP_STATE_INIT,         // 初始化状态 (准备发送 Discover)
     DHCP_STATE_REQUESTING,   // 正在请求 (已发送 Discover，等待 Offer)
+    DHCP_STATE_WAITING_ACK,  // 已经发了 Request，等待 ACK
     DHCP_STATE_BOUND         // 已绑定 (成功拿到 IP！)
 } xnet_dhcp_state_t;
 
