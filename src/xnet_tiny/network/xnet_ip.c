@@ -11,6 +11,20 @@
 #include "xnet_tcp.h"
 #include "xnet_udp.h"
 
+// 引入网卡配置变量
+extern xip_addr_t xnet_netmask;
+extern xip_addr_t xnet_gateway;
+
+// 一个极简的“同网段判断”小工具
+static int is_same_subnet(xip_addr_t *ip1, xip_addr_t *ip2, xip_addr_t *mask) {
+    for (int i = 0; i < 4; i++) {
+        if ((ip1->addr[i] & mask->addr[i]) != (ip2->addr[i] & mask->addr[i])) {
+            return 0; // 只要有一个字节与出来不一样，就不在同一个网段
+        }
+    }
+    return 1;
+}
+
 uint16_t checksum16(uint16_t *buf, uint16_t len, uint16_t pre_sum, int complement) {
     // 使用32位接收16位，因为要处理溢出
     uint32_t checksum = pre_sum;
@@ -142,17 +156,26 @@ static xnet_status_t resolve_and_send(xip_addr_t *dest_ip, xnet_packet_t *packet
     xnet_status_t status;
     uint8_t *mac_addr;
 
-    // 1. 判断是否为全局广播地址 255.255.255.255
+    // 1. 全局广播，直接发送
     uint8_t broadcast_ip[] = {255, 255, 255, 255};
     uint8_t broadcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-
     if (xip_addr_eq(dest_ip->addr, broadcast_ip)) {
-        // 直接发送，无需ARP
         return ethernet_out_to(XNET_PROTOCOL_IP, broadcast_mac, packet);
     }
 
-    // 2. 普通平民通道：走正常的 ARP 解析流程
-    if ((status = xarp_resolve(dest_ip, &mac_addr)) == XNET_OK) {
+    // 2. 判断目的地址是内网还是外网
+    xip_addr_t *next_hop = dest_ip; // 默认：同网段，直接问目标要 MAC
+
+    // 2.1 如果还没配好 IP（比如 DHCP 阶段），或者没有网关（比如VitualBox的 NAT），就不走路由逻辑
+    if (xnet_local_ip.addr[0] != 0 && xnet_gateway.addr[0] != 0) {
+        if (!is_same_subnet(&xnet_local_ip, dest_ip, &xnet_netmask)) {
+            // 发现不是同网段的！把下一跳强行改成网关！
+            next_hop = &xnet_gateway;
+        }
+    }
+
+    // 2.2 进行 ARP 解析 (注意：这里用的是 next_hop，但 packet 内部的 IP 头依然是真正的 dest_ip！)
+    if ((status = xarp_resolve(next_hop, &mac_addr)) == XNET_OK) {
         return ethernet_out_to(XNET_PROTOCOL_IP, mac_addr, packet);
     }
     return status;

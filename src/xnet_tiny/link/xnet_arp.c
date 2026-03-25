@@ -88,12 +88,13 @@ void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr) {
  * @return XNET_ERR_OK 查找成功，XNET_ERR_NONE 查找失败
  */
 xnet_status_t xarp_resolve(const xip_addr_t *ipaddr, uint8_t **mac_addr) {
+    // 匹配到了arp表项，直接返回 mac 地址
     if ((arp_entry.state == XARP_ENTRY_OK) && xip_addr_eq(ipaddr->addr, arp_entry.ipaddr.addr)) {
         *mac_addr = arp_entry.macaddr;
         return XNET_OK;
     }
 
-    // 如果已经在解析这个IP了，就不要重置 retry_cnt，避免无限重置
+    // 没有匹配到arp表项，发送arp请求
     if (arp_entry.state != XARP_ENTRY_RESOLVING || !xip_addr_eq(ipaddr->addr, arp_entry.ipaddr.addr)) {
         memcpy(arp_entry.ipaddr.addr, ipaddr->addr, XNET_IPV4_ADDR_SIZE);
         arp_entry.state = XARP_ENTRY_RESOLVING;
