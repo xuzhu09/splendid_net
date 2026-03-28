@@ -8,7 +8,7 @@
 #include <string.h>
 #include "xnet_netif.h"
 
-uint8_t xnet_local_mac[XNET_MAC_ADDR_SIZE]; // 协议栈mac地址,由驱动回写
+const uint8_t ether_broadcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // 以太网广播mac地址
 
 /**
  * 发送一个以太网数据帧

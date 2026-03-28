@@ -7,6 +7,8 @@
 
 #include "xnet_def.h"
 
+extern const uint8_t ether_broadcast_mac[];
+
 // 关闭填充字节
 #pragma pack(1)
 // 以太网头部 14个字节

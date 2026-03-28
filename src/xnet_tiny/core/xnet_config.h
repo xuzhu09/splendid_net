@@ -2,6 +2,23 @@
 #ifndef XNET_CONFIG_H
 #define XNET_CONFIG_H
 
+#define XARP_DEBUG_MODE                     1               // 是否开启ARP调试模式
+
+#if XARP_DEBUG_MODE
+    // --- 调试模式 ---
+    #define XARP_CFG_ENTRY_OK_TMO           10              // ARP表项存活 10秒
+    #define XARP_CFG_ENTRY_RESOLVING_TMO    3               // 等待回复 3秒
+#else
+    // --- 生产模式 ---
+    #define XARP_CFG_ENTRY_OK_TMO           300             // ARP表项存活 5分钟 (标准)
+    #define XARP_CFG_ENTRY_RESOLVING_TMO    1               // 等待回复 1秒
+#endif
+
+// 以下参数通用
+#define XARP_CFG_TIMER_PERIOD               1               // 扫描周期 1秒
+#define XARP_CFG_MAX_RETRIES                3               // 重试 3次
+#define XARP_CFG_TABLE_SIZE                 10              // 表容量
+
 // ==========================================
 // 1. 静态 IP 总开关 (1: 启用静态 IP, 0: 启用 DHCP)
 // 未来移植 STM32 时，可以轻松改为读取 Flash 标志位

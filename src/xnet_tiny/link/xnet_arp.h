@@ -30,8 +30,6 @@ void xarp_init(void);
 void xarp_poll(void);
 void xarp_in(xnet_packet_t *packet);
 xnet_status_t xarp_make_request(const xip_addr_t *target_ipaddr);
-xnet_status_t xarp_make_response(uint8_t *target_ip, uint8_t *target_mac);
-void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr);
 xnet_status_t xarp_resolve(const xip_addr_t *ipaddr, uint8_t **mac_addr);
 
 #endif //XNET_ARP_H

@@ -10,6 +10,9 @@
 #include "xnet_ethernet.h"
 #include "xnet_ip.h"
 
+// TCP 序列号生成宏
+#define tcp_get_init_seq() ((rand() << 16) + rand())
+
 // pcb数组，程序启动自动创建，属性全部为0
 static xtcp_pcb_t tcp_pcb_pool[XTCP_PCB_MAX_NUM];
 

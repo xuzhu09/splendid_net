@@ -4,9 +4,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-// 引入协议栈的本机 MAC 地址
-extern uint8_t xnet_local_mac[XNET_MAC_ADDR_SIZE];
-
 // 当前 DHCP 的状态
 static xnet_dhcp_state_t dhcp_state = DHCP_STATE_DISABLED;
 // 记录上一次发包的时间，用于超时重传

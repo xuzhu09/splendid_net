@@ -8,9 +8,6 @@
 
 #include "xnet_def.h"
 
-// TCP 序列号生成宏 (属于逻辑部分，留在这里)
-#define tcp_get_init_seq() ((rand() << 16) + rand())
-
 // 全局唯一的本机 IP 地址
 extern xip_addr_t xnet_local_ip;
 extern xip_addr_t xnet_netmask;

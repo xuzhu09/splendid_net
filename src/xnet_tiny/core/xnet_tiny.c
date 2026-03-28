@@ -19,6 +19,7 @@ static xnet_packet_t tx_packet, rx_packet;
 xip_addr_t xnet_local_ip = {{0, 0, 0, 0}};
 xip_addr_t xnet_netmask  = {{0, 0, 0, 0}};
 xip_addr_t xnet_gateway  = {{0, 0, 0, 0}};
+uint8_t xnet_local_mac[XNET_MAC_ADDR_SIZE];             // 协议栈mac地址,由驱动回写
 int hw_csum_offload = 0;
 
 /**
