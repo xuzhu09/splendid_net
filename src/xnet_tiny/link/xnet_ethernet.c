@@ -10,6 +10,42 @@
 
 const uint8_t ether_broadcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // 以太网广播mac地址
 
+// 关闭填充字节
+#pragma pack(1)
+// 以太网头部 14个字节
+typedef struct _xether_hdr_t {
+    uint8_t dest[XNET_MAC_ADDR_SIZE];                   // 目标mac地址，6字节
+    uint8_t src[XNET_MAC_ADDR_SIZE];                    // 源mac地址，6字节
+    uint16_t protocol;                                  // 上层协议，2字节
+} xether_hdr_t;
+#pragma pack()
+
+/**
+ * 以太网数据帧输入输出
+ * @param packet 待处理的包
+ */
+static void ethernet_in(xnet_packet_t *packet) {
+    // 数据至少要比以太网头部大
+    if (packet->len <= sizeof(xether_hdr_t)) {
+        return;
+    }
+
+    // 往上分解到各个协议处理
+    xether_hdr_t *ether_hdr = (xether_hdr_t*) packet->data;
+    // 协议类型占用两个字节，需要大小端转换
+    switch (swap_order16(ether_hdr->protocol)) {
+        case XNET_PROTOCOL_ARP:
+            remove_header(packet, sizeof(xether_hdr_t));
+            xarp_in(packet);
+            break;
+        case XNET_PROTOCOL_IP: {
+            remove_header(packet, sizeof(xether_hdr_t));
+            xip_in(packet);
+            break;
+        }
+    }
+}
+
 /**
  * 发送一个以太网数据帧
  * @param protocol 上层数据协议，IP或ARP
@@ -41,32 +77,6 @@ xnet_status_t ethernet_init(void) {
     if (status < 0) return status;
     // 全网广播自己的 mac 地址，target ip设置自己
     return xarp_make_request(&xnet_local_ip);
-}
-
-/**
- * 以太网数据帧输入输出
- * @param packet 待处理的包
- */
-void ethernet_in(xnet_packet_t *packet) {
-    // 数据至少要比以太网头部大
-    if (packet->len <= sizeof(xether_hdr_t)) {
-        return;
-    }
-
-    // 往上分解到各个协议处理
-    xether_hdr_t *ether_hdr = (xether_hdr_t*) packet->data;
-    // 协议类型占用两个字节，需要大小端转换
-    switch (swap_order16(ether_hdr->protocol)) {
-        case XNET_PROTOCOL_ARP:
-            remove_header(packet, sizeof(xether_hdr_t));
-            xarp_in(packet);
-            break;
-        case XNET_PROTOCOL_IP: {
-            remove_header(packet, sizeof(xether_hdr_t));
-            xip_in(packet);
-            break;
-        }
-    }
 }
 
 /**

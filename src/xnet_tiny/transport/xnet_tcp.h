@@ -19,7 +19,8 @@
 #define XTCP_KIND_MSS       2
 #define XTCP_MSS_DEFAULT    1460
 #define XTCP_WIN_DEFAULT    65535
-#define XTCP_DATA_MAX_SIZE (XNET_CFG_PACKET_MAX_SIZE - sizeof(xether_hdr_t) - sizeof(xip_hdr_t) - sizeof(xtcp_hdr_t))
+// TCP最大数据载荷 = MTU(1500) - IPv4固定头(20) - TCP固定头(20) = 1460
+#define XTCP_DATA_MAX_SIZE (XNET_CFG_MTU - 20 - 20)
 
 #pragma pack(1)
 // TCP头部 20个字节（可能还有12字节的选项数据）

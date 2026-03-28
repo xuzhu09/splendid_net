@@ -10,6 +10,8 @@
 
 // 1. 基础配置与宏工具
 #define XNET_CFG_PACKET_MAX_SIZE        1514        // 收发数据包的最大大小 1500+6+6+2
+#define XNET_CFG_MTU                    1500        // 以太网最大传输单元
+
 #define XNET_IPV4_ADDR_SIZE             4           // IP地址长度
 #define XNET_MAC_ADDR_SIZE              6           // MAC地址长度
 
