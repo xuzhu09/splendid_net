@@ -4,7 +4,6 @@
  */
 #include "xnet_tiny.h"
 #include "dpdk_device.h" // 只依赖我们自己定义的头文件
-#include <time.h>        // clock_gettime
 
 xnet_status_t xnet_netif_open(uint8_t* mac_addr) {
     printf(">> [System Info] Initializing Driver: Linux DPDK\n");

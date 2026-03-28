@@ -8,6 +8,7 @@
 #include "pcap_device.h"
 #include "xnet_tiny.h"
 #include "xnet_netif.h"
+#include "xnet_config.h"
 
 static pcap_t* pcap;
 
@@ -25,13 +26,15 @@ xnet_status_t xnet_netif_open(uint8_t* mac_addr) {
     printf(">> [System Info] Initializing Driver: Windows Pcap\n");
     memcpy(mac_addr, default_mac_addr, sizeof(default_mac_addr));
 
-    // 🌟 核心修复：将底层数据结构转换为网卡查找所需的字符串
+    // 使用网关ip寻找网卡
+    uint8_t target_ip[] = CFG_IP_GW;
+
     char target_ip_str[16];
     sprintf(target_ip_str, "%d.%d.%d.%d",
-            xnet_local_ip.addr[0], xnet_local_ip.addr[1],
-            xnet_local_ip.addr[2], xnet_local_ip.addr[3]);
+            target_ip[0], target_ip[1],
+            target_ip[2], target_ip[3]);
 
-    // 打印出来确认一下
+    // 打印出来确认一下，你会发现不管是不是 DHCP，这里永远打印静态锚点 IP
     printf(">> [Driver] Passing IP to PCAP locator: %s\n", target_ip_str);
 
     pcap = pcap_device_open(target_ip_str, mac_addr, 1);
