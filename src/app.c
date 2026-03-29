@@ -6,7 +6,6 @@
 #include "xserver_datetime.h"
 #include "xnet_dhcp.h"
 #include "xnet_config.h"
-#include "xnet_ethernet.h"
 
 int main (void) {
     // 1. 禁用标准输出缓冲，确保 printf 能即时打印到控制台

@@ -16,7 +16,7 @@
 
 // 关闭填充字节
 #pragma pack(1)
-typedef struct _xarp_packet_t {
+typedef struct _xarp_hdr_t {
     uint16_t hardware_type, protocol_type;              // 硬件类型、协议类型
     uint8_t hardware_len, protocol_len;                 // 硬件长度、协议长度
     uint16_t opcode;                                    // 请求/响应
@@ -24,7 +24,7 @@ typedef struct _xarp_packet_t {
     uint8_t sender_ip[XNET_IPV4_ADDR_SIZE];             // 发送包协议地址
     uint8_t target_mac[XNET_MAC_ADDR_SIZE];             // 接收方硬件地址
     uint8_t target_ip[XNET_IPV4_ADDR_SIZE];             // 接收方协议地址
-} xarp_packet_t;
+} xarp_hdr_t;
 #pragma pack()
 
 // ARP表项
@@ -104,10 +104,10 @@ static void update_arp_entry(uint8_t *src_ip, uint8_t *mac_addr) {
  * @return 生成结果
  */
 static xnet_status_t xarp_make_response(uint8_t *target_ip, uint8_t *target_mac) {
-    xarp_packet_t *arp_packet;
-    xnet_packet_t *packet = xnet_alloc_tx_packet(sizeof(xarp_packet_t));
+    xarp_hdr_t *arp_packet;
+    xnet_packet_t *packet = xnet_alloc_tx_packet(sizeof(xarp_hdr_t));
 
-    arp_packet = (xarp_packet_t*) packet->data;
+    arp_packet = (xarp_hdr_t*) packet->data;
     arp_packet->hardware_type = swap_order16(XARP_HW_ETHER);
     arp_packet->protocol_type = swap_order16(XNET_PROTOCOL_IP);
     arp_packet->hardware_len = XNET_MAC_ADDR_SIZE;
@@ -209,22 +209,22 @@ xnet_status_t xarp_resolve(const xip_addr_t *ipaddr, uint8_t **mac_addr) {
  */
 xnet_status_t xarp_make_request(const xip_addr_t *target_ipaddr) {
     // 准备一个发送包
-    xarp_packet_t *arp_packet;
-    xnet_packet_t *xnet_packet = xnet_alloc_tx_packet(sizeof(xarp_packet_t));
+    xarp_hdr_t *arp_hdr;
+    xnet_packet_t *tx_packet = xnet_alloc_tx_packet(sizeof(xarp_hdr_t));
 
     // 让 arp_packet 指向 data 首地址，配置载荷
-    arp_packet = (xarp_packet_t*) xnet_packet->data;
-    arp_packet->hardware_type = swap_order16(XARP_HW_ETHER);
-    arp_packet->protocol_type = swap_order16(XNET_PROTOCOL_IP);
-    arp_packet->hardware_len = XNET_MAC_ADDR_SIZE;
-    arp_packet->protocol_len = XNET_IPV4_ADDR_SIZE;
-    arp_packet->opcode = swap_order16(XARP_REQUEST);
-    memcpy(arp_packet->sender_mac, xnet_local_mac, XNET_MAC_ADDR_SIZE);
-    memcpy(arp_packet->sender_ip, xnet_local_ip.addr, XNET_IPV4_ADDR_SIZE);
-    memset(arp_packet->target_mac, 0, XNET_MAC_ADDR_SIZE);
-    memcpy(arp_packet->target_ip, target_ipaddr->addr, XNET_IPV4_ADDR_SIZE);
+    arp_hdr = (xarp_hdr_t*) tx_packet->data;
+    arp_hdr->hardware_type = swap_order16(XARP_HW_ETHER);
+    arp_hdr->protocol_type = swap_order16(XNET_PROTOCOL_IP);
+    arp_hdr->hardware_len = XNET_MAC_ADDR_SIZE;
+    arp_hdr->protocol_len = XNET_IPV4_ADDR_SIZE;
+    arp_hdr->opcode = swap_order16(XARP_REQUEST);
+    memcpy(arp_hdr->sender_mac, xnet_local_mac, XNET_MAC_ADDR_SIZE);
+    memcpy(arp_hdr->sender_ip, xnet_local_ip.addr, XNET_IPV4_ADDR_SIZE);
+    memset(arp_hdr->target_mac, 0, XNET_MAC_ADDR_SIZE);
+    memcpy(arp_hdr->target_ip, target_ipaddr->addr, XNET_IPV4_ADDR_SIZE);
     // 发送ARP请求，多播
-    return ethernet_out_to(XNET_PROTOCOL_ARP, ether_broadcast_mac, xnet_packet);
+    return ethernet_out_to(XNET_PROTOCOL_ARP, ether_broadcast_mac, tx_packet);
 }
 
 /**
@@ -233,10 +233,10 @@ xnet_status_t xarp_make_request(const xip_addr_t *target_ipaddr) {
  */
 void xarp_in(xnet_packet_t *packet) {
     // 如果小于，说明数据错误，直接忽略这个arp请求
-    if (packet->len < sizeof(xarp_packet_t)) return;
+    if (packet->len < sizeof(xarp_hdr_t)) return;
 
     // 包的合法性检查
-    xarp_packet_t *arp_packet = (xarp_packet_t*) packet->data;
+    xarp_hdr_t *arp_packet = (xarp_hdr_t*) packet->data;
     uint16_t opcode = swap_order16(arp_packet->opcode);
     if ((swap_order16(arp_packet->hardware_type) != XARP_HW_ETHER) ||
         (arp_packet->hardware_len != XNET_MAC_ADDR_SIZE) ||

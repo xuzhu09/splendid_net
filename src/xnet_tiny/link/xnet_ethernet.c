@@ -73,10 +73,8 @@ xnet_status_t ethernet_out_to(xnet_protocol_t protocol, const uint8_t *target_ma
  * @return 初始化结果
  */
 xnet_status_t ethernet_init(void) {
-    xnet_status_t status = xnet_netif_open(xnet_local_mac);
-    if (status < 0) return status;
-    // 全网广播自己的 mac 地址，target ip设置自己
-    return xarp_make_request(&xnet_local_ip);
+    // 打开网卡，回写mac地址
+    return xnet_netif_open(xnet_local_mac);
 }
 
 /**
