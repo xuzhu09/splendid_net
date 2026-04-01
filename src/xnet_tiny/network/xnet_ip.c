@@ -150,7 +150,7 @@ void xip_in(xnet_packet_t *packet) {
 }
 
 /**
- * 将IP数据包通过以太网发送出去
+ * 解析并发送 ip 包
  * @param dest_ip 目标IP地址
  * @param packet 待发送IP数据包
  * @return 发送结果
