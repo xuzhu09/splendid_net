@@ -2,6 +2,11 @@
 #ifndef XNET_CONFIG_H
 #define XNET_CONFIG_H
 
+// 硬件校验和卸载全局开关
+// 0: 软件计算 (PCAP等虚拟环境)
+// 1: 硬件卸载 (DPDK等真实物理网卡环境)
+extern int xnet_cfg_hw_csum;
+
 #define XNET_CFG_ARP_DEBUG                  1               // 是否开启ARP调试模式
 
 #if XNET_CFG_ARP_DEBUG

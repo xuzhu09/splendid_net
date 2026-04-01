@@ -15,7 +15,7 @@
 
 static uint16_t port_id = 0;
 static struct rte_mempool *mbuf_pool = NULL;
-extern int hw_csum_offload;
+extern int xnet_cfg_hw_csum;
 
 // 你的硬编码 MAC 地址
 const char default_mac_addr[] = {0x00, 0x0c, 0x29, 0xc5, 0xec, 0x62};
@@ -73,7 +73,7 @@ int dpdk_device_init(void) {
     if (rte_eth_dev_count_avail() == 0) return DPDK_ERR;
 
     if (port_init(port_id, mbuf_pool) != 0) return DPDK_ERR;
-    hw_csum_offload = 1;
+    xnet_cfg_hw_csum = 1;
     printf(">> [DPDK Driver] Initialized on Port %d\n", port_id);
     return DPDK_OK;
 }

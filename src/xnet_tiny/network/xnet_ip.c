@@ -98,7 +98,7 @@ void xip_in(xnet_packet_t *packet) {
     // 校验和要求检查
     uint16_t pre_checksum = ip_hdr->hdr_checksum; //取出原校验和
     ip_hdr->hdr_checksum = 0; //校验和本身也会参与运算，先归零
-    if (!hw_csum_offload) {
+    if (!xnet_cfg_hw_csum) {
         if (pre_checksum != checksum16((uint16_t*)ip_hdr, ip_hdr_len, 0, 1)) {
             return; // 丢弃
         }

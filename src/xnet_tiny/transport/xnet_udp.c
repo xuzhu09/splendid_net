@@ -35,9 +35,9 @@ void xudp_in(xudp_pcb_t *socket, xip_addr_t *src_ip, xnet_packet_t *packet)
 
         // 协议规定：如果计算结果为 0，则必须用 0xFFFF 表示（因为 0 代表未启用校验和）
         checksum = (checksum == 0) ? 0xFFFF : checksum;
-        extern int hw_csum_offload;
+        extern int xnet_cfg_hw_csum;
         // 比较计算结果和原始校验和
-        if (!hw_csum_offload && checksum != pre_checksum) {
+        if (!xnet_cfg_hw_csum && checksum != pre_checksum) {
             return; // 校验和验证失败，丢弃数据包
         }
     }
