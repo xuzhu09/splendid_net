@@ -8,9 +8,9 @@
 #include "xnet_ip.h"
 #include "xnet_def.h"
 
-#define XICMP_TYPE_UNREACH          3
-#define XICMP_CODE_PORT_UNREACH     3
-#define XICMP_CODE_PRO_UNREACH      2
+#define XICMP_TYPE_UNREACH          3           // ICMP不可达类型
+#define XICMP_CODE_PORT_UNREACH     3           // 端口不可达
+#define XICMP_CODE_PRO_UNREACH      2           // 协议不可达
 
 /**
  * 初始化 ICMP 协议
