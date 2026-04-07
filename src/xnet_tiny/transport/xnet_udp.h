@@ -8,7 +8,7 @@
 #include "xnet_def.h"
 #include "xnet_ip.h"
 
-#define XUDP_MAX_SOCKET_COUNT 10
+#define XUDP_MAX_PCB_COUNT 10
 
 typedef struct _xudp_pcb_t xudp_pcb_t;
 
@@ -17,11 +17,11 @@ typedef xnet_status_t (*xudp_handler_t) (xudp_pcb_t *udp_socket, xip_addr_t *src
 
 void xudp_init(void);
 
-xudp_pcb_t *xudp_alloc_socket(xudp_handler_t handler);
-xnet_status_t xudp_bind_socket(xudp_pcb_t *socket, uint16_t port);
-void xudp_free_socket(xudp_pcb_t *socket);
+xudp_pcb_t *xudp_alloc_pcb(xudp_handler_t handler);
+xnet_status_t xudp_bind_pcb(xudp_pcb_t *pcb, uint16_t port);
+void xudp_free_pcb(xudp_pcb_t *pcb);
 
 void xudp_in(xnet_packet_t *packet, xip_addr_t *src_ip, xip_addr_t *dest_ip, xip_hdr_t *ip_hdr);
-xnet_status_t xudp_send_to(xudp_pcb_t *socket, xip_addr_t *dest_ip, uint16_t dest_port, xnet_packet_t *packet);
+xnet_status_t xudp_send_to(xudp_pcb_t *pcb, xip_addr_t *dest_ip, uint16_t dest_port, xnet_packet_t *packet);
 
 #endif //XNET_UDP_H

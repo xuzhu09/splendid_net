@@ -9,31 +9,31 @@
 
 #define TIME_STR_SIZE 128
 
-static xsocket_t *udp_sock;
+static xsocket_t *udp_socket;
 static char time_buffer[TIME_STR_SIZE];
 static char rx_buf[64];
 
 xnet_status_t xserver_datetime_create(uint16_t port) {
-    udp_sock = xsocket_open_ex(XSOCKET_TYPE_UDP);
-    if (!udp_sock) return XNET_ERR_MEM;
+    udp_socket = xsocket_open_ex(XSOCKET_TYPE_UDP);
+    if (!udp_socket) return XNET_ERR_MEM;
 
-    xnet_status_t r = xsocket_bind(udp_sock, port);
+    xnet_status_t r = xsocket_bind(udp_socket, port);
     if (r != XNET_OK) {
-        xsocket_close(udp_sock);
-        udp_sock = NULL;
+        xsocket_close(udp_socket);
+        udp_socket = NULL;
         return r;
     }
     return XNET_OK;
 }
 
 void xserver_datetime_poll(void) {
-    if (!udp_sock) return;
+    if (!udp_socket) return;
 
     xip_addr_t src_ip;
     uint16_t src_port;
 
     // 收到任意 UDP 包就回时间；max_polls 给小一点避免卡主循环
-    int n = xsocket_recvfrom(udp_sock, rx_buf, sizeof(rx_buf), &src_ip, &src_port, 1);
+    int n = xsocket_recvfrom(udp_socket, rx_buf, sizeof(rx_buf), &src_ip, &src_port, 1);
     if (n <= 0) return;
 
     printf("[DateTime Server] Recv UDP Request from IP: %d.%d.%d.%d, Port: %d\n",
@@ -57,5 +57,5 @@ void xserver_datetime_poll(void) {
         len = (int)strlen(time_buffer);
     }
 
-    xsocket_sendto(udp_sock, time_buffer, len, &src_ip, src_port);
+    xsocket_sendto(udp_socket, time_buffer, len, &src_ip, src_port);
 }

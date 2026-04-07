@@ -12,8 +12,8 @@ static xnet_time_t dhcp_timer;
 // 我们用一个固定的事务 ID，方便在 Wireshark 里一眼认出它！
 #define DHCP_MY_XID 0x11223344
 
-// DHCP 专属的 UDP Socket
-static xudp_pcb_t *dhcp_socket = NULL;
+// DHCP 专属的 UDP pcb
+static xudp_pcb_t *dhcp_pcb = NULL;
 
 static xip_addr_t pending_server_ip;
 static xip_addr_t pending_offered_ip;
@@ -67,8 +67,8 @@ static void dhcp_send_request(void) {
            pending_offered_ip.addr[2], pending_offered_ip.addr[3]);
 
     xip_addr_t dest_ip = {{255, 255, 255, 255}};
-    if (dhcp_socket) {
-        xudp_send_to(dhcp_socket, &dest_ip, 67, packet);
+    if (dhcp_pcb) {
+        xudp_send_to(dhcp_pcb, &dest_ip, 67, packet);
     }
 }
 
@@ -189,8 +189,8 @@ static void dhcp_send_discover(void) {
     xip_addr_t dest_ip = {{255, 255, 255, 255}};
 
     // 通过刚才绑定的 68 端口，将包发送到 67 端口
-    if (dhcp_socket) {
-        xudp_send_to(dhcp_socket, &dest_ip, 67, packet);
+    if (dhcp_pcb) {
+        xudp_send_to(dhcp_pcb, &dest_ip, 67, packet);
     }
 }
 
@@ -199,10 +199,10 @@ void xnet_dhcp_init(void) {
     memset(&xnet_local_ip, 0, sizeof(xip_addr_t));
 
     // 申请 Socket 并绑定在 68 端口
-    if (dhcp_socket == NULL) {
-        dhcp_socket = xudp_alloc_socket(dhcp_udp_handler);
-        if (dhcp_socket) {
-            xudp_bind_socket(dhcp_socket, 68);
+    if (dhcp_pcb == NULL) {
+        dhcp_pcb = xudp_alloc_pcb(dhcp_udp_handler);
+        if (dhcp_pcb) {
+            xudp_bind_pcb(dhcp_pcb, 68);
         } else {
             printf(">> [DHCP] Panic: Failed to alloc UDP socket!\n");
         }

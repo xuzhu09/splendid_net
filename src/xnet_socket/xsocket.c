@@ -82,7 +82,7 @@ XNET_EXPORT xsocket_t* xsocket_open_ex(xsocket_type_t type) {
         }
     } else {
         // UDP：注册内部 handler，用邮箱桥接到 recvfrom
-        s->pcb.udp = xudp_alloc_socket(internal_udp_handler);
+        s->pcb.udp = xudp_alloc_pcb(internal_udp_handler);
         if (!s->pcb.udp) {
             xsocket_free(s);
             return NULL;
@@ -102,7 +102,7 @@ XNET_EXPORT void xsocket_close(xsocket_t* socket) {
         }
     } else {
         if (socket->pcb.udp) {
-            xudp_free_socket(socket->pcb.udp);
+            xudp_free_pcb(socket->pcb.udp);
             socket->pcb.udp = NULL;
         }
     }
@@ -120,7 +120,7 @@ XNET_EXPORT xnet_status_t xsocket_bind(xsocket_t* socket, uint16_t port) {
         return xtcp_pcb_bind(socket->pcb.tcp, port);
     } else {
         if (!socket->pcb.udp) return XNET_ERR_PARAM;
-        return xudp_bind_socket(socket->pcb.udp, port);
+        return xudp_bind_pcb(socket->pcb.udp, port);
     }
 }
 

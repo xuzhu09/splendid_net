@@ -28,10 +28,10 @@ typedef struct _xudp_hdr_t {
 } xudp_hdr_t;
 #pragma pack()
 
-static xudp_pcb_t udp_socket_pool[XUDP_MAX_SOCKET_COUNT];
+static xudp_pcb_t udp_pcb_pool[XUDP_MAX_PCB_COUNT];
 
-static xudp_pcb_t *xudp_find_socket(uint16_t port) {
-    for (xudp_pcb_t *curr = udp_socket_pool; curr < &udp_socket_pool[XUDP_MAX_SOCKET_COUNT]; curr++) {
+static xudp_pcb_t *xudp_find_pcb(uint16_t port) {
+    for (xudp_pcb_t *curr = udp_pcb_pool; curr < &udp_pcb_pool[XUDP_MAX_PCB_COUNT]; curr++) {
         if (curr->state == XUDP_STATE_USED && curr->local_port == port) {
             return curr;
         }
@@ -40,7 +40,7 @@ static xudp_pcb_t *xudp_find_socket(uint16_t port) {
 }
 
 void xudp_init(void) {
-    memset(udp_socket_pool, 0, sizeof(udp_socket_pool));
+    memset(udp_pcb_pool, 0, sizeof(udp_pcb_pool));
 }
 
 void xudp_in(xnet_packet_t *packet, xip_addr_t *src_ip, xip_addr_t *dest_ip, xip_hdr_t *ip_hdr)
@@ -74,11 +74,11 @@ void xudp_in(xnet_packet_t *packet, xip_addr_t *src_ip, xip_addr_t *dest_ip, xip
         }
     }
 
-    // 💡 新增逻辑：UDP 层自己负责找 Socket！
+    // 💡 新增逻辑：UDP 层自己负责找 pcb
     uint16_t dest_port = swap_order16(udp_hdr->dest_port);
-    xudp_pcb_t *socket = xudp_find_socket(dest_port);
+    xudp_pcb_t *udp_pcb = xudp_find_pcb(dest_port);
 
-    if (socket == NULL) {
+    if (udp_pcb == NULL) {
         // 🚀 终极联动：呼叫 ICMP 发送端口不可达！
         xicmp_dest_unreach(XICMP_CODE_PORT_UNREACH, ip_hdr);
         // 如果找不到对应的端口，说明没人监听这个端口，暂时先丢弃数据包
@@ -92,20 +92,20 @@ void xudp_in(xnet_packet_t *packet, xip_addr_t *src_ip, xip_addr_t *dest_ip, xip
     // 移除 UDP 头部，数据包指针 (packet->data) 现在指向 UDP 有效载荷 (Payload)
     remove_header(packet, sizeof(xudp_hdr_t));
 
-    // 检查 socket 是否有注册的处理函数 (handler)
-    if (socket->handler) {
+    // 检查 pcb 是否有注册的处理函数 (handler)
+    if (udp_pcb->handler) {
         // 调用注册的处理函数，将数据包转发给上层应用
-        socket->handler(socket, src_ip, src_port, packet);
+        udp_pcb->handler(udp_pcb, src_ip, src_port, packet);
     }
 }
 
-xnet_status_t xudp_send_to(xudp_pcb_t *socket, xip_addr_t *dest_ip, uint16_t dest_port, xnet_packet_t *packet) {
+xnet_status_t xudp_send_to(xudp_pcb_t *pcb, xip_addr_t *dest_ip, uint16_t dest_port, xnet_packet_t *packet) {
     xudp_hdr_t *udp_hdr;
     uint16_t checksum;
 
     add_header(packet, sizeof(xudp_hdr_t));
     udp_hdr = (xudp_hdr_t*)packet->data;
-    udp_hdr->src_port = swap_order16(socket->local_port);
+    udp_hdr->src_port = swap_order16(pcb->local_port);
     udp_hdr->dest_port = swap_order16(dest_port);
     udp_hdr->total_len = swap_order16(packet->len);
     udp_hdr->checksum = 0;
@@ -114,9 +114,9 @@ xnet_status_t xudp_send_to(xudp_pcb_t *socket, xip_addr_t *dest_ip, uint16_t des
     return xip_out(XNET_PROTOCOL_UDP, dest_ip, packet);
 }
 
-xudp_pcb_t *xudp_alloc_socket(xudp_handler_t handler) {
+xudp_pcb_t *xudp_alloc_pcb(xudp_handler_t handler) {
     // 1. 遍历资源池
-    for (xudp_pcb_t *cur = udp_socket_pool; cur < &udp_socket_pool[XUDP_MAX_SOCKET_COUNT]; cur++) {
+    for (xudp_pcb_t *cur = udp_pcb_pool; cur < &udp_pcb_pool[XUDP_MAX_PCB_COUNT]; cur++) {
 
         // 2. 检查是否占用
         if (cur->state == XUDP_STATE_FREE) {
@@ -129,18 +129,18 @@ xudp_pcb_t *xudp_alloc_socket(xudp_handler_t handler) {
     return NULL;
 }
 
-void xudp_free_socket(xudp_pcb_t *socket) {
-    socket->state = XUDP_STATE_FREE;
+void xudp_free_pcb(xudp_pcb_t *pcb) {
+    pcb->state = XUDP_STATE_FREE;
 }
 
-xnet_status_t xudp_bind_socket(xudp_pcb_t *socket, uint16_t port) {
+xnet_status_t xudp_bind_pcb(xudp_pcb_t *pcb, uint16_t port) {
     // 1. 是否已占用
-    for (xudp_pcb_t *curr = udp_socket_pool; curr < &udp_socket_pool[XUDP_MAX_SOCKET_COUNT]; curr++) {
+    for (xudp_pcb_t *curr = udp_pcb_pool; curr < &udp_pcb_pool[XUDP_MAX_PCB_COUNT]; curr++) {
         if (curr->state == XUDP_STATE_USED && curr->local_port == port) {
             return XNET_ERR_BINDED;
         }
     }
     // 2. 绑定
-    socket->local_port = port;
+    pcb->local_port = port;
     return XNET_OK;
 }
