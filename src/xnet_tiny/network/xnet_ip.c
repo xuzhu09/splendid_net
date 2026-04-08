@@ -49,7 +49,7 @@ uint16_t checksum16(uint16_t *buf, uint16_t len, uint16_t pre_sum, int complemen
     return complement ? (uint16_t)~checksum : (uint16_t)checksum;
 }
 
-uint16_t checksum_peso(const xip_addr_t *src_ip, const xip_addr_t *dest_ip, uint8_t protocol,
+uint16_t pseudo_checksum(const xip_addr_t *src_ip, const xip_addr_t *dest_ip, uint8_t protocol,
                       uint16_t *buf, uint16_t len) {
 
     // 1. 伪头部要求：协议号前需填充 1 字节 0，以构成一个完整的 16 位字。

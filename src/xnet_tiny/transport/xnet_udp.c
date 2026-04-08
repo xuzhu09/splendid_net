@@ -57,7 +57,7 @@ void xudp_in(xnet_packet_t *packet, xip_addr_t *src_ip, xip_addr_t *dest_ip, xip
     // 只有不为 0 时才需要验证
     if (pre_checksum != 0) {
         // 使用伪头部 (Pseudo-Header) 机制计算校验和，参数包括源IP、本地IP、协议类型、数据指针和长度
-        uint16_t checksum = checksum_peso(src_ip, dest_ip, XNET_PROTOCOL_UDP,
+        uint16_t checksum = pseudo_checksum(src_ip, dest_ip, XNET_PROTOCOL_UDP,
                                           (uint16_t *)udp_hdr, swap_order16(udp_hdr->total_len));
 
         // 协议规定：如果计算结果为 0，则必须用 0xFFFF 表示（因为 0 代表未启用校验和）
@@ -94,17 +94,18 @@ void xudp_in(xnet_packet_t *packet, xip_addr_t *src_ip, xip_addr_t *dest_ip, xip
 }
 
 xnet_status_t xudp_send_to(xudp_pcb_t *pcb, xip_addr_t *dest_ip, uint16_t dest_port, xnet_packet_t *packet) {
-    xudp_hdr_t *udp_hdr;
-    uint16_t checksum;
-
     add_header(packet, sizeof(xudp_hdr_t));
-    udp_hdr = (xudp_hdr_t*)packet->data;
+    xudp_hdr_t *udp_hdr = (xudp_hdr_t*)packet->data;
     udp_hdr->src_port = swap_order16(pcb->local_port);
     udp_hdr->dest_port = swap_order16(dest_port);
     udp_hdr->total_len = swap_order16(packet->len);
     udp_hdr->checksum = 0;
-    checksum = checksum_peso(&xnet_local_ip, dest_ip, XNET_PROTOCOL_UDP, (uint16_t*)packet->data, packet->len);
-    udp_hdr->checksum = (checksum == 0) ? 0xFFFF : checksum;
+    // 硬件卸载判断：如果网卡不支持硬件计算，我们才用 CPU 软算
+    extern int xnet_cfg_hw_csum;
+    if (!xnet_cfg_hw_csum) {
+        uint16_t checksum = pseudo_checksum(&xnet_local_ip, dest_ip, XNET_PROTOCOL_UDP, (uint16_t*)packet->data, packet->len);
+        udp_hdr->checksum = (checksum == 0) ? 0xFFFF : checksum;
+    }
     return xip_out(XNET_PROTOCOL_UDP, dest_ip, packet);
 }
 

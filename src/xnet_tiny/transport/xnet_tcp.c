@@ -199,7 +199,7 @@ static xnet_status_t tcp_send_reset(uint32_t remote_ack, uint16_t local_port, xi
     tcp_hdr->checksum = 0;
     tcp_hdr->urgent_ptr = 0;
 
-    tcp_hdr->checksum = checksum_peso(&xnet_local_ip, remote_ip, XNET_PROTOCOL_TCP, (uint16_t*)packet->data, packet->len);
+    tcp_hdr->checksum = pseudo_checksum(&xnet_local_ip, remote_ip, XNET_PROTOCOL_TCP, (uint16_t*)packet->data, packet->len);
     tcp_hdr->checksum = tcp_hdr->checksum ? tcp_hdr->checksum : 0xFFFF;
     return xip_out(XNET_PROTOCOL_TCP, remote_ip, packet);
 }
@@ -261,7 +261,7 @@ static xnet_status_t tcp_send_segment(xtcp_pcb_t *pcb, uint8_t flags) {
     // 将pcb发送缓冲区的数据拷贝到packet
     tcp_buf_peek(pcb->tx_buf, packet->data + opt_len + sizeof(xtcp_hdr_t), payload_len);
 
-    tcp_hdr->checksum = checksum_peso(&xnet_local_ip, &pcb->remote_ip, XNET_PROTOCOL_TCP,
+    tcp_hdr->checksum = pseudo_checksum(&xnet_local_ip, &pcb->remote_ip, XNET_PROTOCOL_TCP,
                                      (uint16_t*)packet->data, packet->len);
     tcp_hdr->checksum = tcp_hdr->checksum ? tcp_hdr->checksum : 0xFFFF;
 
@@ -423,7 +423,7 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
     uint16_t pre_checksum = tcp_hdr->checksum;
     tcp_hdr->checksum = 0;
     if (pre_checksum != 0) {
-        uint16_t checksum = checksum_peso(remote_ip, &xnet_local_ip, XNET_PROTOCOL_TCP, (uint16_t*) tcp_hdr, packet->len);
+        uint16_t checksum = pseudo_checksum(remote_ip, &xnet_local_ip, XNET_PROTOCOL_TCP, (uint16_t*) tcp_hdr, packet->len);
         checksum = (checksum == 0) ? 0xFFFF : checksum;
         if (checksum != pre_checksum) {
             return;

@@ -13,7 +13,7 @@
 typedef struct _xudp_pcb_t xudp_pcb_t;
 
 // UDP 处理回调函数定义，类似于java中的接口，由业务类提供实现
-typedef xnet_status_t (*xudp_handler_t) (xudp_pcb_t *udp_socket, xip_addr_t *src_ip, uint16_t src_port, xnet_packet_t *packet);
+typedef xnet_status_t (*xudp_handler_t) (xudp_pcb_t *pcb, xip_addr_t *src_ip, uint16_t src_port, xnet_packet_t *packet);
 
 void xudp_init(void);
 

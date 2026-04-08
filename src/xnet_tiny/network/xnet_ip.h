@@ -75,7 +75,7 @@ uint16_t checksum16(uint16_t *buf, uint16_t len, uint16_t pre_sum, int complemen
  * @param len
  * @return
  */
-uint16_t checksum_peso(const xip_addr_t *src_ip, const xip_addr_t *dest_ip, uint8_t protocol,
+uint16_t pseudo_checksum(const xip_addr_t *src_ip, const xip_addr_t *dest_ip, uint8_t protocol,
                        uint16_t *buf, uint16_t len);
 
 #endif //XNET_IP_H
