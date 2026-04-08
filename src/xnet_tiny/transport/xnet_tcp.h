@@ -7,54 +7,7 @@
 
 #include "xnet_def.h"
 
-// 1. TCP PCB 最大数量
-#define XTCP_PCB_MAX_NUM   40
-#define XTCP_CFG_RTX_BUF_SIZE 2048
-#define XTCP_FLAG_FIN    (1 << 0)
-#define XTCP_FLAG_SYN    (1 << 1)
-#define XTCP_FLAG_RST    (1 << 2)
-#define XTCP_FLAG_ACK    (1 << 4)
-
-#define XTCP_KIND_END       0
-#define XTCP_KIND_MSS       2
-#define XTCP_MSS_DEFAULT    1460
-#define XTCP_WIN_DEFAULT    65535
-// TCP最大数据载荷 = MTU(1500) - IPv4固定头(20) - TCP固定头(20) = 1460
-#define XTCP_DATA_MAX_SIZE (XNET_CFG_MTU - 20 - 20)
-
-// 利用补码特性完美解决回绕比较问题
-#define TCP_SEQ_LT(a, b)   ((int32_t)((a) - (b)) < 0)
-#define TCP_SEQ_LEQ(a, b)  ((int32_t)((a) - (b)) <= 0)
-
-#pragma pack(1)
-// TCP头部 20个字节（可能还有12字节的选项数据）
-typedef struct _xtcp_hdr_t {
-    uint16_t src_port;
-    uint16_t dest_port;
-    uint32_t seq;
-    uint32_t ack;
-    union {
-        uint16_t all;
-        struct {
-            uint16_t flags : 6;       // 低6位
-            uint16_t reserved : 6;    // 中间6位
-            uint16_t hdr_len : 4;     // 高4位 （乘以4）
-        };
-    }hdr_flags;
-
-    uint16_t window;
-    uint16_t checksum;
-    uint16_t urgent_ptr;
-}xtcp_hdr_t;
-#pragma pack()
-
-// pcb内部的缓冲区
-typedef struct _xtcp_buf_t {
-    uint16_t write_idx;                 // 写入位置
-    uint16_t ack_idx;                   // 确认位置
-    uint16_t send_idx;                  // 发送位置
-    uint8_t data[XTCP_CFG_RTX_BUF_SIZE];// 缓冲区
-} xtcp_buf_t;
+typedef struct _xtcp_buf_t xtcp_buf_t;
 
 // 2. TCP 生命周期状态
 typedef enum _xtcp_state_e {
@@ -106,8 +59,8 @@ struct _xtcp_pcb_t {
     xtcp_pcb_t *accept_next;     // child link node
     xtcp_pcb_t *accept_head;     // listen accept queue head
     xtcp_pcb_t *accept_tail;     // listen accept queue tail
-    uint8_t                backlog;         // listen backlog limit
-    uint8_t                accept_cnt;      // listen current pending
+    uint8_t     backlog;         // listen backlog limit
+    uint8_t     accept_cnt;      // listen current pending
 };
 
 void xtcp_init(void);

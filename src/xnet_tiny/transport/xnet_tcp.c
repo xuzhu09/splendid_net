@@ -4,7 +4,6 @@
 
 #include "xnet_tcp.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "xnet_ethernet.h"
@@ -13,12 +12,62 @@
 // TCP 序列号生成宏
 #define tcp_get_init_seq() ((rand() << 16) + rand())
 
+#define XTCP_FLAG_FIN    (1 << 0)
+#define XTCP_FLAG_SYN    (1 << 1)
+#define XTCP_FLAG_RST    (1 << 2)
+#define XTCP_FLAG_ACK    (1 << 4)
+
+#define XTCP_KIND_END       0
+#define XTCP_KIND_MSS       2
+#define XTCP_MSS_DEFAULT    1460
+#define XTCP_WIN_DEFAULT    65535
+// TCP最大数据载荷 = MTU(1500) - IPv4固定头(20) - TCP固定头(20) = 1460
+#define XTCP_DATA_MAX_SIZE (XNET_CFG_MTU - 20 - 20)
+
+// 1. TCP PCB 最大数量
+#define XTCP_PCB_MAX_NUM   40
+#define XTCP_CFG_RTX_BUF_SIZE 2048
+
+// 利用补码特性完美解决回绕比较问题
+#define TCP_SEQ_LT(a, b)   ((int32_t)((a) - (b)) < 0)
+#define TCP_SEQ_LEQ(a, b)  ((int32_t)((a) - (b)) <= 0)
+
+// pcb内部的缓冲区
+typedef struct _xtcp_buf_t {
+    uint16_t write_idx;                 // 写入位置
+    uint16_t ack_idx;                   // 确认位置
+    uint16_t send_idx;                  // 发送位置
+    uint8_t data[XTCP_CFG_RTX_BUF_SIZE];// 缓冲区
+} xtcp_buf_t;
+
 // pcb数组，程序启动自动创建，属性全部为0
 static xtcp_pcb_t tcp_pcb_pool[XTCP_PCB_MAX_NUM];
 
+#pragma pack(1)
+// TCP头部 20个字节（可能还有12字节的选项数据）
+typedef struct _xtcp_hdr_t {
+    uint16_t src_port;
+    uint16_t dest_port;
+    uint32_t seq;
+    uint32_t ack;
+    union {
+        uint16_t all;
+        struct {
+            uint16_t flags : 6;       // 低6位
+            uint16_t reserved : 6;    // 中间6位
+            uint16_t hdr_len : 4;     // 高4位 （乘以4）
+        };
+    }hdr_flags;
+
+    uint16_t window;
+    uint16_t checksum;
+    uint16_t urgent_ptr;
+}xtcp_hdr_t;
+#pragma pack()
+
 // ===== accept queue helpers (listener-owned, lwIP-like) =====
 
-static void xtcp_acceptq_push(xtcp_pcb_t *listen, xtcp_pcb_t *child) {
+static void tcp_acceptq_push(xtcp_pcb_t *listen, xtcp_pcb_t *child) {
     child->accept_next = NULL;
 
     if (listen->accept_head == NULL) {
@@ -32,7 +81,7 @@ static void xtcp_acceptq_push(xtcp_pcb_t *listen, xtcp_pcb_t *child) {
     listen->accept_cnt++;
 }
 
-static xtcp_pcb_t *xtcp_acceptq_pop(xtcp_pcb_t *listen) {
+static xtcp_pcb_t *tcp_acceptq_pop(xtcp_pcb_t *listen) {
     xtcp_pcb_t *child = listen->accept_head;
     if (!child) return NULL;
 
@@ -284,7 +333,7 @@ static xnet_status_t tcp_send_segment(xtcp_pcb_t *pcb, uint8_t flags) {
 }
 
 // 分配PCB
-static xtcp_pcb_t *xtcp_pcb_alloc_common(void) {
+static xtcp_pcb_t *tcp_pcb_alloc(void) {
     for (xtcp_pcb_t *pcb = tcp_pcb_pool; pcb < &tcp_pcb_pool[XTCP_PCB_MAX_NUM]; pcb++) {
         // 找到空闲槽位
         if (pcb->state == XTCP_STATE_FREE) {
@@ -326,23 +375,7 @@ static xtcp_pcb_t *xtcp_pcb_alloc_common(void) {
     return NULL;
 }
 
-// 分配一个可用pcb，使用zero alloc，避免复用污染
-static xtcp_pcb_t *xtcp_pcb_zalloc() {
-    for (xtcp_pcb_t *pcb = tcp_pcb_pool; pcb < &tcp_pcb_pool[XTCP_PCB_MAX_NUM]; pcb++) {
-        // 找到一个空闲的 pcb
-        if (pcb->state == XTCP_STATE_FREE) {
-            // 清空旧数据！
-            memset(pcb, 0, sizeof(xtcp_pcb_t));
-
-            // 这里先置为 CLOSED，代表内存已分配但未连接
-            pcb->state = XTCP_STATE_CLOSED;
-            return pcb;
-        }
-    }
-    return NULL;
-}
-
-static void xtcp_pcb_init(xtcp_pcb_t *pcb) {
+static void tcp_pcb_init(xtcp_pcb_t *pcb) {
     // 基础配置
     pcb->remote_win = XTCP_WIN_DEFAULT;
     pcb->remote_mss = XTCP_MSS_DEFAULT;
@@ -370,7 +403,7 @@ static void tcp_pcb_free(xtcp_pcb_t *pcb) {
 }
 
 // 监听状态下的输入处理（发送第二次握手）
-static void xtcp_listen_input(xtcp_pcb_t *listen_pcb, xip_addr_t *remote_ip, xtcp_hdr_t *tcp_hdr) {
+static void tcp_listen_input(xtcp_pcb_t *listen_pcb, xip_addr_t *remote_ip, xtcp_hdr_t *tcp_hdr) {
     uint16_t hdr_flags = tcp_hdr->hdr_flags.all;
 
     // 非 SYN 包直接 RST
@@ -380,7 +413,7 @@ static void xtcp_listen_input(xtcp_pcb_t *listen_pcb, xip_addr_t *remote_ip, xtc
     }
 
     // 1. 拿一个标准件 (此时缓冲区、随机Seq都准备好了！)
-    xtcp_pcb_t *child_pcb = xtcp_pcb_alloc_common();
+    xtcp_pcb_t *child_pcb = tcp_pcb_alloc();
     if (!child_pcb) return;
 
     // 2. 个性化配置 (连接侧特有)
@@ -448,7 +481,7 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
     // pcb处于监听状态（收到第一次握手）
     if (pcb->state == XTCP_STATE_LISTEN) {
         // 监听状态下的输入处理（发送第二次握手）
-        xtcp_listen_input(pcb, remote_ip, tcp_hdr);
+        tcp_listen_input(pcb, remote_ip, tcp_hdr);
         return;
     }
 
@@ -489,7 +522,7 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
                     xtcp_pcb_t *listen = pcb->listener;
                     if (listen && listen->state == XTCP_STATE_LISTEN) {
                         if (listen->accept_cnt < listen->backlog) {
-                            xtcp_acceptq_push(listen, pcb);
+                            tcp_acceptq_push(listen, pcb);
 
                             // （可选）通知：有新连接可 accept
                             // 注意：回调仍然传 child pcb，语义是“这个连接已就绪”
@@ -602,7 +635,7 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
 // 用户的需求：我要一个 PCB，后面我会绑定端口去 Listen，或者 Connect 别人
 xtcp_pcb_t *xtcp_pcb_new(xtcp_event_handler_t handler) {
     // 1. 拿一个标准件
-    xtcp_pcb_t *pcb = xtcp_pcb_alloc_common();
+    xtcp_pcb_t *pcb = tcp_pcb_alloc();
     if (!pcb) return NULL;
 
     // 2. 个性化配置 (用户侧特有)
@@ -737,5 +770,5 @@ xtcp_pcb_t *xtcp_accept(xtcp_pcb_t *listen_pcb) {
     if (!listen_pcb || listen_pcb->state != XTCP_STATE_LISTEN) {
         return NULL;
     }
-    return xtcp_acceptq_pop(listen_pcb);
+    return tcp_acceptq_pop(listen_pcb);
 }
