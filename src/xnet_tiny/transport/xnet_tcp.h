@@ -22,6 +22,10 @@
 // TCP最大数据载荷 = MTU(1500) - IPv4固定头(20) - TCP固定头(20) = 1460
 #define XTCP_DATA_MAX_SIZE (XNET_CFG_MTU - 20 - 20)
 
+// 利用补码特性完美解决回绕比较问题
+#define TCP_SEQ_LT(a, b)   ((int32_t)((a) - (b)) < 0)
+#define TCP_SEQ_LEQ(a, b)  ((int32_t)((a) - (b)) <= 0)
+
 #pragma pack(1)
 // TCP头部 20个字节（可能还有12字节的选项数据）
 typedef struct _xtcp_hdr_t {

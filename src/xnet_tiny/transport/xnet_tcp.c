@@ -468,7 +468,12 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
     }
 
     // 这里可能是第三次握手，也可能是连接已建立后的正常通信，此时tcp_hdr可能包含option数据，所以不能使用sizeof(xtcp_hdr_t)
-    remove_header(packet, tcp_hdr->hdr_flags.hdr_len * 4);
+    uint16_t actual_hdr_len = tcp_hdr->hdr_flags.hdr_len * 4;
+    // 头部声称的长度不能小于基础 20 字节，也不能大于当前整个包的物理长度
+    if (actual_hdr_len < sizeof(xtcp_hdr_t) || actual_hdr_len > packet->len) {
+        return; // 非法畸形包，直接丢弃
+    }
+    remove_header(packet, actual_hdr_len);
     uint16_t flags = tcp_hdr->hdr_flags.flags;
     uint16_t payload_len = packet->len; // 剥离头后，这就是数据长度
     switch (pcb->state) {
@@ -508,9 +513,9 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
                 // 实时更新对方的接收窗口。
                 // 即使 ACK 号没有变（即没有确认新数据），对方也可能只是发个包来告诉我们窗口变大了。
                 pcb->remote_win = tcp_hdr->window;
-                if ((pcb->snd_una < tcp_hdr->ack) && (tcp_hdr->ack <= pcb->snd_nxt)) {
+                if (TCP_SEQ_LT(pcb->snd_una, tcp_hdr->ack) && TCP_SEQ_LEQ(tcp_hdr->ack, pcb->snd_nxt)) {
                     // 计算对方确认了多少字节
-                    uint16_t acked_len = tcp_hdr->ack - pcb->snd_una;
+                    uint32_t acked_len = tcp_hdr->ack - pcb->snd_una;
 
                     // 释放发送缓冲区空间 (这一步把 tail 指针前移了)
                     tcp_buf_advance_ack(pcb->tx_buf, acked_len);
@@ -718,6 +723,10 @@ xnet_status_t xtcp_pcb_close(xtcp_pcb_t *pcb) {
         status = tcp_send_segment(pcb, XTCP_FLAG_FIN | XTCP_FLAG_ACK); // 只要连接已建立，必然带ACK
         if (status < 0) return status;
         pcb->state = XTCP_STATE_FIN_WAIT_1;
+    } else if (pcb->state == XTCP_STATE_CLOSE_WAIT) {
+        // 增加被动关闭的分支
+        tcp_send_segment(pcb, XTCP_FLAG_FIN | XTCP_FLAG_ACK);
+        pcb->state = XTCP_STATE_LAST_ACK; // 等待对方最后的 ACK
     } else {
         tcp_pcb_free(pcb);
     }
