@@ -7,15 +7,18 @@
 #include "xnet_ip.h"
 #include <string.h>
 
-// 控制块，不需要发送到网络，可以padding
-struct _xudp_pcb_t {
-    enum {
-        XUDP_STATE_FREE,
-        XUDP_STATE_USED,
-    } state;
+// UDP PCB 状态机枚举
+typedef enum _xudp_state_t {
+    XUDP_STATE_FREE = 0,        // 习惯上把 FREE 设为 0，方便 memset 清零时默认生效
+    XUDP_STATE_USED,
+    // XUDP_STATE_CONNECTED,    // 以后如果支持 UDP Connect，还可以加：
+} xudp_state_t;
 
-    uint16_t local_port;
-    xudp_handler_t handler;
+// UDP PCB 控制块，不需要发送到网络，可以padding
+struct _xudp_pcb_t {
+    xudp_state_t        state;
+    uint16_t            local_port;
+    xudp_handler_t      handler;
 };
 
 #pragma pack(1)

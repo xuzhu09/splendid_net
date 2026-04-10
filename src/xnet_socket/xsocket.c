@@ -28,10 +28,10 @@ struct _xsocket_t {
     uint16_t   udp_src_port;
 };
 
-static struct _xsocket_t socket_pool[XSOCKET_MAX_NUM];
+static xsocket_t socket_pool[XSOCKET_MAX_NUM];
 
 // 前置声明：底层 UDP 回调
-static xnet_status_t internal_udp_handler(xudp_pcb_t *udp_socket,
+static xnet_status_t on_udp_recv(xudp_pcb_t *pcb,
                                          xip_addr_t *src_ip,
                                          uint16_t src_port,
                                          xnet_packet_t *packet);
@@ -72,7 +72,7 @@ XNET_EXPORT xsocket_t *xsocket_open_ex(xsocket_type_t type) {
         }
     } else {
         // UDP：注册内部 handler，用邮箱桥接到 recvfrom
-        s->pcb.udp = xudp_alloc_pcb(internal_udp_handler);
+        s->pcb.udp = xudp_alloc_pcb(on_udp_recv);
         if (!s->pcb.udp) {
             socket_free(s);
             return NULL;
@@ -222,7 +222,7 @@ XNET_EXPORT int xsocket_read(xsocket_t *socket, char *buf, int max_len) {
 // ===== UDP 专用 =====
 
 // 底层回调：把收到的 UDP payload 放进对应 wrapper 的邮箱
-static xnet_status_t internal_udp_handler(xudp_pcb_t *udp_socket,
+static xnet_status_t on_udp_recv(xudp_pcb_t *pcb,
                                          xip_addr_t *src_ip,
                                          uint16_t src_port,
                                          xnet_packet_t *packet) {
@@ -231,7 +231,7 @@ static xnet_status_t internal_udp_handler(xudp_pcb_t *udp_socket,
     for (int i = 0; i < XSOCKET_MAX_NUM; i++) {
         if (socket_pool[i].is_used &&
             socket_pool[i].type == XSOCKET_TYPE_UDP &&
-            socket_pool[i].pcb.udp == udp_socket) {
+            socket_pool[i].pcb.udp == pcb) {
             s = &socket_pool[i];
             break;
         }
