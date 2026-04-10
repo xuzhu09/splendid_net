@@ -7,76 +7,81 @@
 
 #include "xnet_def.h"
 
+// 1. 前置声明
 typedef struct _xtcp_buf_t xtcp_buf_t;
 
-// 2. TCP 生命周期状态
+// 2. TCP 生命周期状态机 (RFC 793 标准状态)
 typedef enum _xtcp_state_e {
-    XTCP_STATE_FREE,
-    XTCP_STATE_CLOSED,
-    XTCP_STATE_LISTEN,
-    XTCP_STATE_SYN_RECVD,
-    XTCP_STATE_ESTABLISHED,
-    XTCP_STATE_FIN_WAIT_1,
-    XTCP_STATE_FIN_WAIT_2,
-    XTCP_STATE_CLOSING,
-    XTCP_STATE_TIMED_WAIT,
-    XTCP_STATE_CLOSE_WAIT,
-    XTCP_STATE_LAST_ACK,
+    XTCP_STATE_FREE,            // 空闲状态 (控制块未被分配)
+    XTCP_STATE_CLOSED,          // 初始/关闭状态
+    XTCP_STATE_LISTEN,          // 监听状态，等待被动连接
+    XTCP_STATE_SYN_RECVD,       // 收到 SYN 并发送了 SYN+ACK，等待最终 ACK
+    XTCP_STATE_ESTABLISHED,     // 连接已建立，数据传输阶段
+    XTCP_STATE_FIN_WAIT_1,      // 主动关闭：已发送 FIN，等待对方的 ACK
+    XTCP_STATE_FIN_WAIT_2,      // 主动关闭：已收到 ACK，等待对方发送 FIN
+    XTCP_STATE_CLOSING,         // 双方同时关闭：发送了 FIN，也收到了 FIN，等待最后的 ACK
+    XTCP_STATE_TIMED_WAIT,      // 等待 2MSL 以确保对方收到最后的 ACK (TIME_WAIT)
+    XTCP_STATE_CLOSE_WAIT,      // 被动关闭：收到 FIN，等待本地应用层调用 close()
+    XTCP_STATE_LAST_ACK,        // 被动关闭：已发送 FIN，等待最后的 ACK
 } xtcp_state_t;
 
-// 3. 事件类型
+// 3. 事件类型 (向应用层抛出的网络事件)
 typedef enum _xtcp_event_e {
-    XTCP_EVENT_CONNECTED,       // 连接成功
-    XTCP_EVENT_DATA_RECEIVED,   // 收到数据
-    XTCP_EVENT_SENT,            // 数据已确认，缓冲区有空位
-    XTCP_EVENT_CLOSED,          // 连接断开
-    XTCP_EVENT_ABORTED,         // 连接异常终止 (RST)
+    XTCP_EVENT_CONNECTED,       // 连接成功建立 (三次握手完成)
+    XTCP_EVENT_DATA_RECEIVED,   // 收到远端数据，可调用 recv 读取
+    XTCP_EVENT_SENT,            // 数据已被远端 ACK 确认，本地发送缓冲区已腾出空间
+    XTCP_EVENT_CLOSED,          // 正常连接断开 (四次挥手完成)
+    XTCP_EVENT_ABORTED,         // 连接异常终止 (收到 RST 报文等致命错误)
 } xtcp_event_t;
 
-// 4. TCP 控制块
+// 4. TCP 控制块前置声明
 typedef struct _xtcp_pcb_t xtcp_pcb_t;
 
-// TCP 事件回调函数指针（接口）
-typedef xnet_status_t (*xtcp_event_handler_t) (xtcp_pcb_t *pcb, xtcp_event_t event);
+// 5. TCP 事件回调函数指针约定 (接口)
+typedef xnet_status_t (*xtcp_event_handler_t)(xtcp_pcb_t *pcb, xtcp_event_t event);
 
-// 5. TCP PCB 结构体
+// 6. TCP PCB (Protocol Control Block) 核心结构体
 struct _xtcp_pcb_t {
-    xtcp_state_t           state;
-    uint16_t               local_port;
-    uint16_t               remote_port;
-    xip_addr_t             remote_ip;
-    uint32_t               snd_nxt;         // 下一个发送序号
-    uint32_t               snd_una;         // 已发送未确认的编号
-    uint32_t               rcv_nxt;         // 下一个收到的序列号
-    uint16_t               remote_mss;
-    uint16_t               remote_win;
-    xtcp_event_handler_t   event_cb;
-    xtcp_buf_t            *tx_buf;
-    xtcp_buf_t            *rx_buf;
+    xtcp_state_t           state;           // TCP 状态机当前状态
+    uint16_t               local_port;      // 本地端口号
+    uint16_t               remote_port;     // 远端端口号
+    xip_addr_t             remote_ip;       // 远端 IP 地址
 
-    // ===== lwIP-like accept/backlog support =====
-    xtcp_pcb_t            *listener;        // child -> parent listen pcb
-    xtcp_pcb_t            *accept_next;     // child link node
-    xtcp_pcb_t            *accept_head;     // listen accept queue head
-    xtcp_pcb_t            *accept_tail;     // listen accept queue tail
-    uint8_t                backlog;         // listen backlog limit
-    uint8_t                accept_cnt;      // listen current pending
+    // ===== 滑动窗口与序号空间 =====
+    uint32_t               snd_nxt;         // 发送窗口：下一个将要发送的序列号
+    uint32_t               snd_una;         // 发送窗口：最早已发送但尚未被确认的序列号
+    uint32_t               rcv_nxt;         // 接收窗口：期望收到的下一个序列号
+    uint16_t               remote_mss;      // 远端最大报文段长度 (MSS)
+    uint16_t               remote_win;      // 远端接收窗口大小
+
+    // ===== 数据与应用层接口 =====
+    xtcp_event_handler_t   event_cb;        // 应用层事件回调函数
+    xtcp_buf_t            *tx_buf;          // 发送缓冲区指针
+    xtcp_buf_t            *rx_buf;          // 接收缓冲区指针
+
+    // ===== 监听与全连接队列 (LwIP-like backlog support) =====
+    xtcp_pcb_t            *listener;        // 指向父级监听 PCB 的指针
+    xtcp_pcb_t            *accept_next;     // 链表指针：全连接队列中的下一个子连接
+    xtcp_pcb_t            *accept_head;     // 全连接队列 (已完成三次握手) 头指针
+    xtcp_pcb_t            *accept_tail;     // 全连接队列尾指针
+    uint8_t                backlog;         // 最大允许的挂起连接数 (全连接队列总容量)
+    uint8_t                accept_cnt;      // 当前已就绪但未被 accept 取走的连接数
 };
 
-void xtcp_init(void);
-void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet);
+// ===== 协议栈核心处理接口 =====
+void           xtcp_init(void);
+void           xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet);
 
-xtcp_pcb_t *xtcp_pcb_new(xtcp_event_handler_t handler);
-xnet_status_t xtcp_pcb_bind(xtcp_pcb_t *pcb, uint16_t local_port);
-xtcp_pcb_t *xtcp_pcb_find(xip_addr_t *remote_ip, uint16_t remote_port, uint16_t local_port);
-xnet_status_t xtcp_pcb_listen(xtcp_pcb_t *pcb);
-xnet_status_t xtcp_pcb_close(xtcp_pcb_t *pcb);
+// ===== 控制块 (PCB) 生命周期与状态管理 =====
+xtcp_pcb_t    *xtcp_pcb_new(xtcp_event_handler_t handler);
+xnet_status_t  xtcp_pcb_bind(xtcp_pcb_t *pcb, uint16_t local_port);
+xtcp_pcb_t    *xtcp_pcb_find(xip_addr_t *remote_ip, uint16_t remote_port, uint16_t local_port);
+xnet_status_t  xtcp_pcb_listen(xtcp_pcb_t *pcb);
+xnet_status_t  xtcp_pcb_close(xtcp_pcb_t *pcb);
 
-int xtcp_send(xtcp_pcb_t *pcb, uint8_t *src, uint16_t len);
-int xtcp_recv(xtcp_pcb_t *pcb, uint8_t *dest, uint16_t len);
-
-xtcp_pcb_t *xtcp_accept(xtcp_pcb_t *listen_pcb);
-
-
+// ===== 数据收发与连接提取 =====
+int            xtcp_send(xtcp_pcb_t *pcb, uint8_t *src, uint16_t len);
+int            xtcp_recv(xtcp_pcb_t *pcb, uint8_t *dest, uint16_t len);
+xtcp_pcb_t    *xtcp_accept(xtcp_pcb_t *listen_pcb);
 
 #endif //XNET_TCP_H
