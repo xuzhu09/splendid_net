@@ -1,5 +1,6 @@
 #include "xserver_http.h"
-#include "xsocket.h"   // <--- 只依赖 Socket，不依赖 xnet_tiny
+
+#include "xsocket.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -123,8 +124,7 @@ static void xhttp_handle_client(xsocket_t *client) {
 // -------------------------------------------------------------------------
 
 xnet_status_t xhttp_server_create(uint16_t port) {
-    // 现在的 Create 只负责创建 Socket，不涉及具体的 PCB 回调
-    server_socket = xsocket_open();
+    server_socket = xsocket_open(XSOCKET_TYPE_TCP);
     if (!server_socket) return XNET_ERR_MEM;
 
     xsocket_bind(server_socket, port);

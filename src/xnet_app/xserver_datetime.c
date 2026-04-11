@@ -14,7 +14,7 @@ static char time_buffer[TIME_STR_SIZE];
 static char rx_buf[64];
 
 xnet_status_t xserver_datetime_create(uint16_t port) {
-    udp_socket = xsocket_open_ex(XSOCKET_TYPE_UDP);
+    udp_socket = xsocket_open(XSOCKET_TYPE_UDP);
     if (!udp_socket) return XNET_ERR_MEM;
 
     xnet_status_t r = xsocket_bind(udp_socket, port);

@@ -7,7 +7,7 @@
 
 #include "xnet_def.h"
 
-#define XTCP_CFG_RTX_BUF_SIZE 2048
+#define XTCP_CFG_RTX_BUF_SIZE 2048          // TCP收发通用缓冲区大小
 
 // 1. 完整定义缓冲区结构体
 typedef struct _xtcp_buf_t {
@@ -19,33 +19,30 @@ typedef struct _xtcp_buf_t {
 
 // 2. TCP 生命周期状态机 (RFC 793 标准状态)
 typedef enum _xtcp_state_e {
-    XTCP_STATE_FREE,            // 空闲状态 (控制块未被分配)
-    XTCP_STATE_CLOSED,          // 初始/关闭状态
-    XTCP_STATE_LISTEN,          // 监听状态，等待被动连接
-    XTCP_STATE_SYN_RECVD,       // 收到 SYN 并发送了 SYN+ACK，等待最终 ACK
-    XTCP_STATE_ESTABLISHED,     // 连接已建立，数据传输阶段
-    XTCP_STATE_FIN_WAIT_1,      // 主动关闭：已发送 FIN，等待对方的 ACK
-    XTCP_STATE_FIN_WAIT_2,      // 主动关闭：已收到 ACK，等待对方发送 FIN
-    XTCP_STATE_CLOSING,         // 双方同时关闭：发送了 FIN，也收到了 FIN，等待最后的 ACK
-    XTCP_STATE_TIMED_WAIT,      // 等待 2MSL 以确保对方收到最后的 ACK (TIME_WAIT)
-    XTCP_STATE_CLOSE_WAIT,      // 被动关闭：收到 FIN，等待本地应用层调用 close()
-    XTCP_STATE_LAST_ACK,        // 被动关闭：已发送 FIN，等待最后的 ACK
+    XTCP_STATE_FREE,                        // 空闲状态 (控制块未被分配)
+    XTCP_STATE_CLOSED,                      // 初始/关闭状态
+    XTCP_STATE_LISTEN,                      // 监听状态，等待被动连接
+    XTCP_STATE_SYN_RECVD,                   // 收到 SYN 并发送了 SYN+ACK，等待最终 ACK
+    XTCP_STATE_ESTABLISHED,                 // 连接已建立，数据传输阶段
+    XTCP_STATE_FIN_WAIT_1,                  // 主动关闭：已发送 FIN，等待对方的 ACK
+    XTCP_STATE_FIN_WAIT_2,                  // 主动关闭：已收到 ACK，等待对方发送 FIN
+    XTCP_STATE_CLOSING,                     // 双方同时关闭：发送了 FIN，也收到了 FIN，等待最后的 ACK
+    XTCP_STATE_TIMED_WAIT,                  // 等待 2MSL 以确保对方收到最后的 ACK (TIME_WAIT)
+    XTCP_STATE_CLOSE_WAIT,                  // 被动关闭：收到 FIN，等待本地应用层调用 close()
+    XTCP_STATE_LAST_ACK,                    // 被动关闭：已发送 FIN，等待最后的 ACK
 } xtcp_state_t;
 
 // 3. 事件类型 (向应用层抛出的网络事件)
 typedef enum _xtcp_event_e {
-    XTCP_EVENT_CONNECTED,       // 连接成功建立 (三次握手完成)
-    XTCP_EVENT_DATA_RECEIVED,   // 收到远端数据，可调用 recv 读取
-    XTCP_EVENT_SENT,            // 数据已被远端 ACK 确认，本地发送缓冲区已腾出空间
-    XTCP_EVENT_CLOSED,          // 正常连接断开 (四次挥手完成)
-    XTCP_EVENT_ABORTED,         // 连接异常终止 (收到 RST 报文等致命错误)
+    XTCP_EVENT_CONNECTED,                   // 连接成功建立 (三次握手完成)
+    XTCP_EVENT_DATA_RECEIVED,               // 收到远端数据，可调用 recv 读取
+    XTCP_EVENT_SENT,                        // 数据已被远端 ACK 确认，本地发送缓冲区已腾出空间
+    XTCP_EVENT_CLOSED,                      // 正常连接断开 (四次挥手完成)
+    XTCP_EVENT_ABORTED,                     // 连接异常终止 (收到 RST 报文等致命错误)
 } xtcp_event_t;
 
 // 4. TCP 控制块前置声明
 typedef struct _xtcp_pcb_t xtcp_pcb_t;
-
-// 5. TCP 事件回调函数指针约定 (接口)
-typedef xnet_status_t (*xtcp_event_handler_t)(xtcp_pcb_t *pcb, xtcp_event_t event);
 
 // 6. TCP PCB (Protocol Control Block) 核心结构体
 struct _xtcp_pcb_t {
@@ -62,7 +59,6 @@ struct _xtcp_pcb_t {
     uint16_t               remote_win;      // 远端接收窗口大小
 
     // ===== 数据与应用层接口 =====
-    xtcp_event_handler_t   event_cb;        // 应用层事件回调函数
     xtcp_buf_t             tx_buf;          // 发送缓冲区
     xtcp_buf_t             rx_buf;          // 接收缓冲区
 
@@ -80,7 +76,7 @@ void           xtcp_init(void);
 void           xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet);
 
 // ===== 控制块 (PCB) 生命周期与状态管理 =====
-xtcp_pcb_t    *xtcp_pcb_new(xtcp_event_handler_t handler);
+xtcp_pcb_t    *xtcp_pcb_new(void);
 xnet_status_t  xtcp_pcb_bind(xtcp_pcb_t *pcb, uint16_t local_port);
 xtcp_pcb_t    *xtcp_pcb_find(xip_addr_t *remote_ip, uint16_t remote_port, uint16_t local_port);
 xnet_status_t  xtcp_pcb_listen(xtcp_pcb_t *pcb);

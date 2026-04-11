@@ -376,7 +376,6 @@ static void tcp_listen_input(xtcp_pcb_t *listen_pcb, xip_addr_t *remote_ip, xtcp
 
     // 2. 个性化配置 (连接侧特有)
     // 2.1 继承“父业”
-    child_pcb->event_cb = listen_pcb->event_cb;   // 继承回调
     child_pcb->local_port = listen_pcb->local_port; // 继承端口
     child_pcb->listener = listen_pcb;   // ✅ 记录父 LISTEN pcb（S方案关键）
 
@@ -481,12 +480,6 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
                     if (listen && listen->state == XTCP_STATE_LISTEN) {
                         if (listen->accept_cnt < listen->backlog) {
                             tcp_acceptq_push(listen, pcb);
-
-                            // （可选）通知：有新连接可 accept
-                            // 注意：回调仍然传 child pcb，语义是“这个连接已就绪”
-                            if (listen->event_cb) {
-                                listen->event_cb(pcb, XTCP_EVENT_CONNECTED);
-                            }
                         } else {
                             // backlog 满：直接拒绝（RST 或 close 都行，这里用 RST 更干脆）
                             tcp_send_reset(pcb->rcv_nxt, pcb->local_port, &pcb->remote_ip, pcb->remote_port);
@@ -511,12 +504,6 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
                     // 释放发送缓冲区空间 (这一步把 tail 指针前移了)
                     tcp_buf_advance_ack(&pcb->tx_buf, acked_len);
                     pcb->snd_una += acked_len;
-
-                    // 如果确实腾出了空间，且应用层注册了回调，就通知它
-                    // curr_ack_size > 0 意味着缓冲区比刚才空了一点
-                    if (acked_len > 0 && pcb->event_cb) {
-                        pcb->event_cb(pcb, XTCP_EVENT_SENT);
-                    }
                 }
             }
 
@@ -531,11 +518,6 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
                 // 2. 更新接收进度 (只加数据的长度)
                 pcb->rcv_nxt += written;
 
-                // 3. 通知应用层有数据到了
-                if (pcb->event_cb) {
-                    pcb->event_cb(pcb, XTCP_EVENT_DATA_RECEIVED);
-                }
-
                 // 收到了新数据，必须回复 ACK
                 need_ack = 1;
             }
@@ -546,10 +528,6 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
                 pcb->rcv_nxt++; // FIN 占用一个序列号
                 // 收到 FIN，必须回复 ACK
                 need_ack = 1;
-                // 通知应用层对方断开了 (通常应用层需要在此时调用 close)
-                if (pcb->event_cb) {
-                    pcb->event_cb(pcb, XTCP_EVENT_CLOSED);
-                }
             }
             // 4. 统一发送 ACK / 数据
             if (need_ack) {
@@ -582,7 +560,6 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
             break;
         case XTCP_STATE_LAST_ACK:
             if (flags & XTCP_FLAG_ACK) {
-                pcb->event_cb(pcb, XTCP_EVENT_CLOSED);
                 tcp_pcb_free(pcb);
             }
             break;
@@ -591,15 +568,11 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
 
 // 2. 重构 xtcp_pcb_new (面向用户)
 // 用户的需求：我要一个 PCB，后面我会绑定端口去 Listen，或者 Connect 别人
-xtcp_pcb_t *xtcp_pcb_new(xtcp_event_handler_t handler) {
+xtcp_pcb_t *xtcp_pcb_new(void) {
     // 1. 拿一个标准件
     xtcp_pcb_t *pcb = tcp_pcb_new();
     if (!pcb) return NULL;
-
-    // 2. 个性化配置 (用户侧特有)
-    pcb->event_cb = handler;
-
-    // 3. 状态已经在 base 里设为 CLOSED 了，不用动
+    // 2. 状态已经在 base 里设为 CLOSED 了，不用动
     return pcb;
 }
 

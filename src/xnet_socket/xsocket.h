@@ -22,11 +22,7 @@ typedef enum {
 } xsocket_type_t;
 
 // ===== 打开/关闭 =====
-// 兼容旧代码：默认打开 TCP
-XNET_EXPORT xsocket_t *xsocket_open(void);
-// 新接口：明确指定 TCP / UDP
-XNET_EXPORT xsocket_t *xsocket_open_ex(xsocket_type_t type);
-
+XNET_EXPORT xsocket_t *xsocket_open(xsocket_type_t type);
 XNET_EXPORT void xsocket_close(xsocket_t *socket);
 
 // ===== 通用：绑定 =====

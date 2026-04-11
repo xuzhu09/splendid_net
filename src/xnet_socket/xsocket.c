@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-#define XSOCKET_MAX_NUM            40     // 你 TCP PCB 池是 40，这里跟着用
+#define XSOCKET_MAX_NUM            40     // 与TCP的PCB保持一致
 #define XSOCKET_BACKLOG            10
 #define XSOCKET_READ_DEFAULT_POLLS 2000
 
@@ -53,19 +53,14 @@ static void socket_free(xsocket_t *s) {
 }
 
 // ===== 打开/关闭 =====
-
-XNET_EXPORT xsocket_t *xsocket_open(void) {
-    return xsocket_open_ex(XSOCKET_TYPE_TCP);
-}
-
-XNET_EXPORT xsocket_t *xsocket_open_ex(xsocket_type_t type) {
+XNET_EXPORT xsocket_t *xsocket_open(xsocket_type_t type) {
     xsocket_t *s = socket_new();
     if (!s) return NULL;
 
     s->type = type;
 
     if (type == XSOCKET_TYPE_TCP) {
-        s->pcb.tcp = xtcp_pcb_new(NULL);
+        s->pcb.tcp = xtcp_pcb_new();
         if (!s->pcb.tcp) {
             socket_free(s);
             return NULL;
