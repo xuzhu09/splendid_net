@@ -225,7 +225,7 @@ static uint16_t tcp_buf_pull(xtcp_buf_t *tcp_buf, uint8_t *dest, uint16_t len) {
     return read_len;
 }
 
-static xnet_status_t tcp_send_reset(uint32_t remote_ack, uint16_t local_port, xip_addr_t *remote_ip, uint16_t remote_port) {
+static xnet_status_t tcp_send_reset(uint32_t ack_seq, uint16_t local_port, xip_addr_t *remote_ip, uint16_t remote_port) {
     // TCP发送复位，只有头部，没有选项
     xnet_packet_t *packet = xnet_prepare_tx_packet(sizeof(xtcp_hdr_t));
     xtcp_hdr_t *tcp_hdr = (xtcp_hdr_t*) packet->data;
@@ -233,7 +233,7 @@ static xnet_status_t tcp_send_reset(uint32_t remote_ack, uint16_t local_port, xi
     tcp_hdr->src_port = swap_order16(local_port);
     tcp_hdr->dest_port = swap_order16(remote_port);
     tcp_hdr->seq = 0;
-    tcp_hdr->ack = swap_order32(remote_ack);
+    tcp_hdr->ack = swap_order32(ack_seq);
     uint16_t hdr_len = sizeof(xtcp_hdr_t) / 4;
     uint16_t flags = XTCP_FLAG_RST | XTCP_FLAG_ACK;
     tcp_hdr->_hdrlen_rsvd_flags = swap_order16(TCP_HDR_SET_FLAGS(hdr_len, flags));
@@ -375,11 +375,11 @@ void xtcp_init(void) {
 }
 
 void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
-    // 校验TCP包的长度
+    // 检查TCP包的长度
     if (packet->len < sizeof(xtcp_hdr_t)) {
         return;
     }
-    // 校验伪校验和
+    // 检查伪校验和（校验和不需要进行大小端转换，校验和算法与顺序无关）
     xtcp_hdr_t *tcp_hdr = (xtcp_hdr_t*) packet->data;
     uint16_t pre_checksum = tcp_hdr->checksum;
     tcp_hdr->checksum = 0;
@@ -402,6 +402,7 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
     // 查询五元组
     xtcp_pcb_t *pcb = xtcp_pcb_find(remote_ip, tcp_hdr->src_port, tcp_hdr->dest_port);
     if (pcb == NULL) {
+        // 找不到pcb，说明连listen pcb都没有，没有应用程序监听目标端口
         tcp_send_reset(tcp_hdr->seq + 1, tcp_hdr->dest_port, remote_ip, tcp_hdr->src_port);
         return;
     }
