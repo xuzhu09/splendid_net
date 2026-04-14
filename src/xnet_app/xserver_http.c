@@ -1,6 +1,7 @@
 #include "xserver_http.h"
 
 #include "xsocket.h"
+#include "xnet_tiny.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -27,11 +28,29 @@ static xsocket_t *server_socket;
 // 基于 Socket 的按行读取
 static int xhttp_read_line(xsocket_t *sock, char *buf, int max_len) {
     int i = 0;
+
+    // 1. 记录刚进来的绝对物理时间 (比如毫秒时间戳)
+    xnet_time_t start_time = xsys_get_time();
+
     while (i < max_len - 1) {
         char c;
-        // [阻塞] 读 1 个字节
         int len = xsocket_read(sock, &c, 1);
-        if (len <= 0) break;
+
+        if (len < 0) {
+            return -1; // 对方真断开了
+        }
+
+        if (len == 0) {
+            // 2. 检查距离上次收到数据，物理时间是否超过了 3 秒
+            if (xnet_time_check_tmo(&start_time, 3)) {
+                printf("[Warn] Client idle for 3 seconds, kicking out!\n");
+                return -1; // 强制踢出
+            }
+            continue;
+        }
+
+        // 3. 只要收到哪怕 1 个字节，立刻重置倒计时炸弹！(类似于串口超时断帧)
+        start_time = xsys_get_time();
 
         if (c != '\r' && c != '\n') {
             buf[i++] = c;
@@ -68,6 +87,7 @@ static void xhttp_send_file(xsocket_t *sock, const char *url_path) {
     sprintf(xhttp_send_buf,
         "HTTP/1.0 200 OK\r\n"
         "Server: XSocket-Http/1.0\r\n"
+        "Connection: close\r\n"         //传完这个文件我就要关 TCP 了
         "Content-Length: %d\r\n"
         "\r\n",
         file_size
