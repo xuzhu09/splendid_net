@@ -46,24 +46,25 @@ typedef struct _xtcp_pcb_t xtcp_pcb_t;
 
 // 6. TCP PCB (Protocol Control Block) 核心结构体
 struct _xtcp_pcb_t {
+    // ===== 基础属性(IP与端口) =====
     xtcp_state_t           state;           // TCP 状态机当前状态
     uint16_t               local_port;      // 本地端口号
     uint16_t               remote_port;     // 远端端口号
     xip_addr_t             remote_ip;       // 远端 IP 地址
 
-    // ===== 滑动窗口与序号空间 =====
+    // ===== 滑动窗口 =====
     uint32_t               snd_nxt;         // 发送窗口：下一个将要发送的序列号
     uint32_t               snd_una;         // 发送窗口：最早已发送但尚未被确认的序列号
     uint32_t               rcv_nxt;         // 接收窗口：期望收到的下一个序列号
     uint16_t               remote_mss;      // 远端最大报文段长度 (MSS)
     uint16_t               remote_win;      // 远端接收窗口大小
 
-    // ===== 数据与应用层接口 =====
+    // ===== 缓冲区 =====
     xtcp_buf_t             tx_buf;          // 发送缓冲区
     xtcp_buf_t             rx_buf;          // 接收缓冲区
 
     // ===== 监听与全连接队列 (LwIP-like backlog support) =====
-    xtcp_pcb_t            *lpcb;        // 指向父级监听 PCB 的指针
+    xtcp_pcb_t            *lpcb;            // 指向父级监听 PCB 的指针
     xtcp_pcb_t            *accept_next;     // 链表指针：全连接队列中的下一个子连接
     xtcp_pcb_t            *accept_head;     // 全连接队列 (已完成三次握手) 头指针
     xtcp_pcb_t            *accept_tail;     // 全连接队列尾指针

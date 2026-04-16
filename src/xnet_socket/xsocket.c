@@ -124,18 +124,18 @@ XNET_EXPORT xsocket_t *xsocket_accept(xsocket_t *socket) {
         return NULL;
     }
 
-    xtcp_pcb_t *child = xtcp_accept(socket->pcb.tcp);
-    if (!child) return NULL;
+    xtcp_pcb_t *pcb = xtcp_accept(socket->pcb.tcp);
+    if (!pcb) return NULL;
 
     xsocket_t *client = socket_new();
     if (!client) {
         // 没有 wrapper 资源，只能关掉 child
-        xtcp_pcb_close(child);
+        xtcp_pcb_close(pcb);
         return NULL;
     }
 
     client->type = XSOCKET_TYPE_TCP;
-    client->pcb.tcp = child;
+    client->pcb.tcp = pcb;
     return client;
 }
 

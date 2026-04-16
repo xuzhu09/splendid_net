@@ -334,7 +334,7 @@ static void tcp_pcb_free(xtcp_pcb_t *pcb) {
 static void tcp_listen_input(xtcp_pcb_t *lpcb, xip_addr_t *remote_ip, xtcp_hdr_t *tcp_hdr, uint16_t flags) {
     // 非 SYN 包直接 RST
     if (!(flags & XTCP_FLAG_SYN)) {
-        tcp_send_reset(tcp_hdr->seq, lpcb->local_port, remote_ip, tcp_hdr->src_port);
+        tcp_send_reset(tcp_hdr->seq + 1, lpcb->local_port, remote_ip, tcp_hdr->src_port);
         return;
     }
 
@@ -514,7 +514,7 @@ void xtcp_in(xip_addr_t *remote_ip, xnet_packet_t *packet) {
     tcp_hdr->ack = swap_order32(tcp_hdr->ack);
     tcp_hdr->window = swap_order16(tcp_hdr->window);
 
-    // 全局统一“报文深度解析与安检”
+    // 计算tcp头部长度，由于涉及cpu计算，必须提前将_hdrlen_rsvd_flags转成小端序
     uint16_t actual_hdr_len = TCP_HDR_GET_LEN(tcp_hdr->_hdrlen_rsvd_flags) * 4;
 
     // 头部声称的长度不能小于基础 20 字节，也不能大于当前整个包的物理长度
