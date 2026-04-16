@@ -13,6 +13,8 @@
     #define XHTTP_DOC_ROOT  "/home/efairy520/splendid_net/htdocs"
 #endif
 
+#define XHTTP_SERVER_BACKLOG  20  // backlog队列长度
+
 static char xhttp_recv_buf[1024];
 static char xhttp_send_buf[1024];
 static char xhttp_req_path[255];
@@ -148,7 +150,7 @@ xnet_status_t xhttp_server_create(uint16_t port) {
     if (!server_socket) return XNET_ERR_MEM;
 
     xsocket_bind(server_socket, port);
-    xsocket_listen(server_socket);
+    xsocket_listen(server_socket, XHTTP_SERVER_BACKLOG);
 
     return XNET_OK;
 }

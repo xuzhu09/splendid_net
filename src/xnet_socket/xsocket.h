@@ -29,7 +29,7 @@ XNET_EXPORT void xsocket_close(xsocket_t *socket);
 XNET_EXPORT xnet_status_t xsocket_bind(xsocket_t *socket, uint16_t port);
 
 // ===== TCP 专用 =====
-XNET_EXPORT xnet_status_t xsocket_listen(xsocket_t *socket);
+XNET_EXPORT xnet_status_t xsocket_listen(xsocket_t *socket, uint8_t backlog);
 XNET_EXPORT xsocket_t *xsocket_accept(xsocket_t *socket);
 
 XNET_EXPORT int xsocket_write(xsocket_t *socket, const char *data, int len);

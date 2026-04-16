@@ -6,7 +6,6 @@
 #include <string.h>
 
 #define XSOCKET_MAX_NUM            40     // 与TCP的PCB保持一致
-#define XSOCKET_BACKLOG            10
 #define XSOCKET_READ_DEFAULT_POLLS 2000
 
 // UDP 邮箱大小：IPv4(20)+UDP(8) 后的典型 MTU 1500 -> 1472 payload
@@ -111,12 +110,12 @@ XNET_EXPORT xnet_status_t xsocket_bind(xsocket_t *socket, uint16_t port) {
 
 // ===== TCP 专用 =====
 
-XNET_EXPORT xnet_status_t xsocket_listen(xsocket_t *socket) {
+XNET_EXPORT xnet_status_t xsocket_listen(xsocket_t *socket, uint8_t backlog) {
     if (!socket || socket->type != XSOCKET_TYPE_TCP || !socket->pcb.tcp) {
         return XNET_ERR_STATE;
     }
 
-    return xtcp_pcb_listen(socket->pcb.tcp, XSOCKET_BACKLOG);
+    return xtcp_pcb_listen(socket->pcb.tcp, backlog);
 }
 
 XNET_EXPORT xsocket_t *xsocket_accept(xsocket_t *socket) {
