@@ -225,24 +225,47 @@ static uint16_t tcp_buf_pull(xtcp_buf_t *tcp_buf, uint8_t *dest, uint16_t len) {
     return read_len;
 }
 
-static xnet_status_t tcp_send_reset(uint32_t ack_seq, uint16_t local_port, xip_addr_t *remote_ip, uint16_t remote_port) {
-    // TCP发送复位，只有头部，没有选项
-    xnet_packet_t *packet = xnet_prepare_tx_packet(sizeof(xtcp_hdr_t));
-    xtcp_hdr_t *tcp_hdr = (xtcp_hdr_t*) packet->data;
+// 组装 20 字节标准 TCP 头
+// [最底层车间]：只看数值，不问出处的纯粹头部组装
+static void tcp_build_header_raw(xtcp_hdr_t *tcp_hdr,
+                                 uint16_t src_port, uint16_t dest_port,
+                                 uint32_t seq, uint32_t ack,
+                                 uint16_t window, uint8_t flags, uint16_t opt_len) {
+    tcp_hdr->src_port = swap_order16(src_port);
+    tcp_hdr->dest_port = swap_order16(dest_port);
+    tcp_hdr->seq = swap_order32(seq);
+    tcp_hdr->ack = swap_order32(ack);
 
-    tcp_hdr->src_port = swap_order16(local_port);
-    tcp_hdr->dest_port = swap_order16(remote_port);
-    tcp_hdr->seq = 0;
-    tcp_hdr->ack = swap_order32(ack_seq);
-    uint16_t hdr_len = sizeof(xtcp_hdr_t) / 4;
-    uint16_t flags = XTCP_FLAG_RST | XTCP_FLAG_ACK;
-    tcp_hdr->_hdrlen_rsvd_flags = swap_order16(TCP_HDR_SET_FLAGS(hdr_len, flags));
-    tcp_hdr->window = 0;
+    uint16_t len_val = (opt_len + sizeof(xtcp_hdr_t)) / 4;
+    tcp_hdr->_hdrlen_rsvd_flags = swap_order16(TCP_HDR_SET_FLAGS(len_val, flags));
+
+    tcp_hdr->window = swap_order16(window);
     tcp_hdr->checksum = 0;
     tcp_hdr->urgent_ptr = 0;
+}
+
+// 服务于活跃的 PCB
+static void tcp_build_header_pcb(xtcp_pcb_t *pcb, xtcp_hdr_t *tcp_hdr, uint8_t flags, uint16_t opt_len) {
+    tcp_build_header_raw(tcp_hdr,
+                         pcb->local_port, pcb->remote_port,
+                         pcb->snd_nxt, pcb->rcv_nxt,
+                         tcp_buf_free_count(&pcb->rx_buf),
+                         flags, opt_len);
+}
+
+// tcp发送重置
+static xnet_status_t tcp_send_reset(uint32_t ack_seq, uint16_t local_port, xip_addr_t *remote_ip, uint16_t remote_port) {
+    xnet_packet_t *packet = xnet_prepare_tx_packet(sizeof(xtcp_hdr_t));
+    if (!packet) return XNET_ERR_MEM; // 别忘了查空！
+
+    xtcp_hdr_t *tcp_hdr = (xtcp_hdr_t*) packet->data;
+    
+    // 注意：RST 包的 SEQ 填 0，窗口填 0，不带选项
+    tcp_build_header_raw(tcp_hdr, local_port, remote_port, 0, ack_seq, 0, XTCP_FLAG_RST | XTCP_FLAG_ACK, 0);
 
     tcp_hdr->checksum = pseudo_checksum(&xnet_local_ip, remote_ip, XNET_PROTOCOL_TCP, (uint16_t*)packet->data, packet->len);
     tcp_hdr->checksum = tcp_hdr->checksum ? tcp_hdr->checksum : 0xFFFF;
+
     return xip_out(XNET_PROTOCOL_TCP, remote_ip, packet);
 }
 
@@ -266,62 +289,90 @@ static void tcp_parse_mss(xtcp_pcb_t *pcb, xtcp_hdr_t *tcp_hdr) {
     }
 }
 
-// 通用发送数据方法
-static xnet_status_t tcp_send_segment(xtcp_pcb_t *pcb, uint8_t flags) {
+// 计算 Payload 长度
+static uint16_t tcp_calc_payload_len(xtcp_pcb_t *pcb, uint16_t opt_len) {
     uint16_t payload_len = tcp_buf_wait_send_count(&pcb->tx_buf);
-    // SYN 包需要额外4字节的MSS选项空间
-    uint16_t opt_len = (flags & XTCP_FLAG_SYN) ? 4 : 0;
 
     if (pcb->remote_win) {
-        payload_len = min(payload_len, pcb->remote_win);    //data_size不能超过对方窗口
-        payload_len = min(payload_len, pcb->remote_mss);    //data_size不能超过对方单包最大限制
-        if (payload_len + opt_len > XTCP_DATA_MAX_SIZE) {//data_size不能超过以太网剩余限制,1460
+        // 木桶效应：取待发数据、对方窗口、对方 MSS 的最小值
+        payload_len = min(payload_len, pcb->remote_win);
+        payload_len = min(payload_len, pcb->remote_mss);
+
+        // 绝不能超过本地以太网 MTU 限制
+        if (payload_len + opt_len > XTCP_DATA_MAX_SIZE) {
             payload_len = XTCP_DATA_MAX_SIZE - opt_len;
         }
     } else {
-        payload_len = 0;
+        payload_len = 0; // 对方零窗口，强行禁言
     }
 
-    xnet_packet_t *packet = xnet_prepare_tx_packet(payload_len + opt_len + sizeof(xtcp_hdr_t));
-    xtcp_hdr_t *tcp_hdr = (xtcp_hdr_t*) packet->data;
+    return payload_len;
+}
 
-    tcp_hdr->src_port = swap_order16(pcb->local_port);
-    tcp_hdr->dest_port = swap_order16(pcb->remote_port);
-    tcp_hdr->seq = swap_order32(pcb->snd_nxt); //由上一次发送的seq确定
-    tcp_hdr->ack = swap_order32(pcb->rcv_nxt); //由上一次收到的seq确定
-    uint16_t len_val = (opt_len + sizeof(xtcp_hdr_t)) / 4;
-    tcp_hdr->_hdrlen_rsvd_flags = swap_order16(TCP_HDR_SET_FLAGS(len_val, flags));
-    tcp_hdr->window = swap_order16(tcp_buf_free_count(&pcb->rx_buf));
-    tcp_hdr->checksum = 0;
-    tcp_hdr->urgent_ptr = 0;
+// 挂载 TCP 可变选项 (如 MSS)
+static void tcp_build_options(uint8_t *packet_data, uint8_t flags) {
+    // 目前只有 SYN 包需要挂载 MSS 选项
     if (flags & XTCP_FLAG_SYN) {
-        uint8_t *opt_data = packet->data + sizeof(xtcp_hdr_t);
+        uint8_t *opt_data = packet_data + sizeof(xtcp_hdr_t);
         opt_data[0] = XTCP_KIND_MSS;
         opt_data[1] = 4;
         *(uint16_t*)(opt_data + 2) = swap_order16(XTCP_MSS_DEFAULT);
     }
-    // 将pcb发送缓冲区的数据拷贝到packet
-    tcp_buf_peek(&pcb->tx_buf, packet->data + opt_len + sizeof(xtcp_hdr_t), payload_len);
+}
 
-    tcp_hdr->checksum = pseudo_checksum(&xnet_local_ip, &pcb->remote_ip, XNET_PROTOCOL_TCP,
-                                     (uint16_t*)packet->data, packet->len);
-    tcp_hdr->checksum = tcp_hdr->checksum ? tcp_hdr->checksum : 0xFFFF;
-
-    xnet_status_t status = xip_out(XNET_PROTOCOL_TCP, &pcb->remote_ip, packet);
-    if (status < 0) return status;
-
-    // 发送后，移动send_idx
+// 推进 PCB 内外游标
+static void tcp_update_send_state(xtcp_pcb_t *pcb, uint8_t flags, uint16_t payload_len) {
+    // 1. 推进本地物理缓冲区光标
     if (payload_len > 0) {
         tcp_buf_advance_send(&pcb->tx_buf, payload_len);
     }
 
+    // 2. 消耗对方的逻辑接收窗口
     pcb->remote_win -= payload_len;
+
+    // 3. 推进对外的逻辑发包光标
     pcb->snd_nxt += payload_len;
 
-
+    // SYN 或 FIN 这种幽灵报文，强行消耗 1 个序列号
     if (flags & (XTCP_FLAG_SYN | XTCP_FLAG_FIN)) {
-        pcb->snd_nxt++; // SYN或FIN占用1个字节，ACK不占用
+        pcb->snd_nxt++;
     }
+}
+
+// 通用发送数据方法
+static xnet_status_t tcp_send_segment(xtcp_pcb_t *pcb, uint8_t flags) {
+    // 1. 策略层：计算选项长度与 Payload 长度
+    uint16_t opt_len = (flags & XTCP_FLAG_SYN) ? 4 : 0;
+    uint16_t payload_len = tcp_calc_payload_len(pcb, opt_len);
+
+    // 2. 内存层：向底层网卡驱动申请一块干净的 Packet 内存
+    xnet_packet_t *packet = xnet_prepare_tx_packet(payload_len + opt_len + sizeof(xtcp_hdr_t));
+    if (!packet) return XNET_ERR_MEM;
+    xtcp_hdr_t *tcp_hdr = (xtcp_hdr_t*) packet->data;
+
+    // 3. 封包层：组装 TCP 头与选项
+    tcp_build_header_pcb(pcb, tcp_hdr, flags, opt_len);
+    if (opt_len > 0) {
+        tcp_build_options(packet->data, flags);
+    }
+
+    // 4. 搬运层：将 Payload 从物理缓冲区 Copy 到发往网卡的 Packet 中
+    if (payload_len > 0) {
+        tcp_buf_peek(&pcb->tx_buf, packet->data + opt_len + sizeof(xtcp_hdr_t), payload_len);
+    }
+
+    // 5. 校验层：计算包含伪首部的Checksum
+    tcp_hdr->checksum = pseudo_checksum(&xnet_local_ip, &pcb->remote_ip, XNET_PROTOCOL_TCP,
+                                        (uint16_t*)packet->data, packet->len);
+    tcp_hdr->checksum = tcp_hdr->checksum ? tcp_hdr->checksum : 0xFFFF;
+
+    // 6. 物理层：通过 IP 层将数据包轰出网卡
+    xnet_status_t status = xip_out(XNET_PROTOCOL_TCP, &pcb->remote_ip, packet);
+    if (status < 0) return status;
+
+    // 7. 状态机层：一旦网卡发送成功，立即推进内外所有游标
+    tcp_update_send_state(pcb, flags, payload_len);
+
     return XNET_OK;
 }
 
